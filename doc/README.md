@@ -5,3 +5,4 @@ For full documentation, please visit our [documentation site](https://open-llm-v
 
 Additional local docs:
 - `mio-mcp.md`: MCP capture tools for XiaoZhi gateway.
+- `mio-changes-2026-01.md`: Local change log and troubleshooting notes.

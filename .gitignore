@@ -75,4 +75,7 @@ tmp/
 private/
 mcp_servers.json
 
+# SSL certificates
+certs/
+
 .vscode/
