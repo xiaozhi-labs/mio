@@ -70,7 +70,7 @@ export const useAudioTask = () => {
   /**
    * Handle audio playback with Live2D lip sync
    */
-  const handleAudioPlayback = (options: AudioTaskOptions): Promise<void> => new Promise((resolve) => {
+  const handleAudioPlayback = (options: AudioTaskOptions): Promise<void> => new Promise(async (resolve) => {
     const {
       aiState: currentAiState,
       setSubtitleText: updateSubtitle,
@@ -115,95 +115,7 @@ export const useAudioTask = () => {
     }
 
     try {
-      // Process audio if available
-      if (canUsePcm) {
-        // Get Live2D manager and model
-        const live2dManager = (window as any).getLive2DManager?.();
-        if (!live2dManager) {
-          console.error('Live2D manager not found');
-          resolve();
-          return;
-        }
-
-        const model = live2dManager.getModel(0);
-        if (!model) {
-          console.error('Live2D model not found at index 0');
-          resolve();
-          return;
-        }
-        console.log('Found model for audio playback');
-
-        if (!model._wavFileHandler) {
-          console.warn('Model does not have _wavFileHandler for lip sync');
-        } else {
-          console.log('Model has _wavFileHandler available');
-        }
-
-        // Set expression if available
-        const lappAdapter = (window as any).getLAppAdapter?.();
-        if (lappAdapter && expressions?.[0] !== undefined) {
-          setExpression(
-            expressions[0],
-            lappAdapter,
-            `Set expression to: ${expressions[0]}`,
-          );
-        }
-
-        // Start talk motion
-        if (LAppDefine && LAppDefine.PriorityNormal) {
-          console.log("Starting random 'Talk' motion");
-          model.startRandomMotion(
-            "Talk",
-            LAppDefine.PriorityNormal,
-          );
-        } else {
-          console.warn("LAppDefine.PriorityNormal not found - cannot start talk motion");
-        }
-
-        const audioHandle = { stop: () => pcmPlayer.stopAll() };
-        audioManager.setCurrentAudio(audioHandle, model);
-        let isFinished = false;
-
-        const cleanup = () => {
-          audioManager.clearCurrentAudio(audioHandle);
-          if (!isFinished) {
-            isFinished = true;
-            resolve();
-          }
-        };
-
-        const rate = audioSampleRate || 16000;
-        const channels = audioChannels || 1;
-        const enqueueResult = pcmPlayer.enqueue(audioPcmBase64, rate, channels, cleanup);
-
-        if (model._wavFileHandler) {
-          const blob = pcmPlayer.makeWavBlob(enqueueResult.pcm, rate, channels);
-          const url = URL.createObjectURL(blob);
-
-          if (!model._wavFileHandler._initialized) {
-            console.log('Applying enhanced lip sync');
-            model._wavFileHandler._initialized = true;
-
-            const originalUpdate = model._wavFileHandler.update.bind(model._wavFileHandler);
-            model._wavFileHandler.update = function (deltaTimeSeconds: number) {
-              const result = originalUpdate(deltaTimeSeconds);
-              // @ts-ignore
-              this._lastRms = Math.min(2.0, this._lastRms * 2.0);
-              return result;
-            };
-          }
-
-          if (audioManager.hasCurrentAudio()) {
-            model._wavFileHandler.start(url);
-          } else {
-            console.warn('WavFileHandler start skipped - audio was stopped');
-          }
-
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }
-      } else if (audioBase64) {
-        const audioDataUrl = `data:audio/wav;base64,${audioBase64}`;
-
+      const playWavAudio = (audioDataUrl: string) => {
         // Get Live2D manager and model
         const live2dManager = (window as any).getLive2DManager?.();
         if (!live2dManager) {
@@ -313,6 +225,111 @@ export const useAudioTask = () => {
         });
 
         audio.load();
+      };
+
+      // Process audio if available
+      if (canUsePcm) {
+        // Get Live2D manager and model
+        const live2dManager = (window as any).getLive2DManager?.();
+        if (!live2dManager) {
+          console.error('Live2D manager not found');
+          resolve();
+          return;
+        }
+
+        const model = live2dManager.getModel(0);
+        if (!model) {
+          console.error('Live2D model not found at index 0');
+          resolve();
+          return;
+        }
+        console.log('Found model for audio playback');
+
+        if (!model._wavFileHandler) {
+          console.warn('Model does not have _wavFileHandler for lip sync');
+        } else {
+          console.log('Model has _wavFileHandler available');
+        }
+
+        // Set expression if available
+        const lappAdapter = (window as any).getLAppAdapter?.();
+        if (lappAdapter && expressions?.[0] !== undefined) {
+          setExpression(
+            expressions[0],
+            lappAdapter,
+            `Set expression to: ${expressions[0]}`,
+          );
+        }
+
+        // Start talk motion
+        if (LAppDefine && LAppDefine.PriorityNormal) {
+          console.log("Starting random 'Talk' motion");
+          model.startRandomMotion(
+            "Talk",
+            LAppDefine.PriorityNormal,
+          );
+        } else {
+          console.warn("LAppDefine.PriorityNormal not found - cannot start talk motion");
+        }
+
+        const audioHandle = { stop: () => pcmPlayer.stopAll() };
+        audioManager.setCurrentAudio(audioHandle, model);
+        let isFinished = false;
+
+        const cleanup = () => {
+          audioManager.clearCurrentAudio(audioHandle);
+          if (!isFinished) {
+            isFinished = true;
+            resolve();
+          }
+        };
+
+        const rate = audioSampleRate || 16000;
+        const channels = audioChannels || 1;
+        const enqueueResult = await pcmPlayer.enqueue(
+          audioPcmBase64,
+          rate,
+          channels,
+          cleanup,
+        );
+
+        if (!enqueueResult.started) {
+          audioManager.clearCurrentAudio(audioHandle);
+          if (audioBase64) {
+            playWavAudio(`data:audio/wav;base64,${audioBase64}`);
+            return;
+          }
+          resolve();
+          return;
+        }
+
+        if (model._wavFileHandler) {
+          const blob = pcmPlayer.makeWavBlob(enqueueResult.pcm, rate, channels);
+          const url = URL.createObjectURL(blob);
+
+          if (!model._wavFileHandler._initialized) {
+            console.log('Applying enhanced lip sync');
+            model._wavFileHandler._initialized = true;
+
+            const originalUpdate = model._wavFileHandler.update.bind(model._wavFileHandler);
+            model._wavFileHandler.update = function (deltaTimeSeconds: number) {
+              const result = originalUpdate(deltaTimeSeconds);
+              // @ts-ignore
+              this._lastRms = Math.min(2.0, this._lastRms * 2.0);
+              return result;
+            };
+          }
+
+          if (audioManager.hasCurrentAudio()) {
+            model._wavFileHandler.start(url);
+          } else {
+            console.warn('WavFileHandler start skipped - audio was stopped');
+          }
+
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+      } else if (audioBase64) {
+        playWavAudio(`data:audio/wav;base64,${audioBase64}`);
       } else {
         resolve();
       }

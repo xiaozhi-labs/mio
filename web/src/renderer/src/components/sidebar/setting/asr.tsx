@@ -19,9 +19,11 @@ function ASR({ onSave, onCancel }: ASRProps): JSX.Element {
     autoStopMic,
     autoStartMicOn,
     autoStartMicOnConvEnd,
+    voiceInterruptEnabled,
     setAutoStopMic,
     setAutoStartMicOn,
     setAutoStartMicOnConvEnd,
+    setVoiceInterruptEnabled,
     handleInputChange,
     handleSave,
     handleCancel,
@@ -45,6 +47,13 @@ function ASR({ onSave, onCancel }: ASRProps): JSX.Element {
         label={t('settings.asr.autoStopMic')}
         checked={autoStopMic}
         onChange={setAutoStopMic}
+      />
+
+      <SwitchField
+        label={t('settings.asr.voiceInterrupt')}
+        help={t('settings.asr.voiceInterruptDesc')}
+        checked={voiceInterruptEnabled}
+        onChange={setVoiceInterruptEnabled}
       />
 
       <SwitchField

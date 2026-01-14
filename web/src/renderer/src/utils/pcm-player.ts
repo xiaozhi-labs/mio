@@ -12,14 +12,15 @@ class PcmPlayer {
     this.activeSources = new Set();
   }
 
-  enqueue(
+  async enqueue(
     base64: string,
     sampleRate: number,
     channels: number,
     onEnded?: () => void,
-  ): { pcm: Int16Array } {
-    if (this.context.state === 'suspended') {
-      this.context.resume();
+  ): Promise<{ pcm: Int16Array; started: boolean }> {
+    const ready = await this.ensureRunning();
+    if (!ready) {
+      return { pcm: new Int16Array(0), started: false };
     }
 
     const pcm = this.decodeBase64ToInt16(base64);
@@ -38,7 +39,7 @@ class PcmPlayer {
       onEnded?.();
     };
 
-    return { pcm };
+    return { pcm, started: true };
   }
 
   stopAll() {
@@ -88,6 +89,18 @@ class PcmPlayer {
     }
 
     return new Blob([view], { type: 'audio/wav' });
+  }
+
+  private async ensureRunning(): Promise<boolean> {
+    if (this.context.state === 'running') {
+      return true;
+    }
+    try {
+      await this.context.resume();
+    } catch (error) {
+      console.warn('[PcmPlayer] AudioContext resume failed:', error);
+    }
+    return this.context.state === 'running';
   }
 
   private decodeBase64ToInt16(base64: string): Int16Array {

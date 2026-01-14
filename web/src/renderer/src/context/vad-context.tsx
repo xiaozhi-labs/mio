@@ -11,6 +11,7 @@ import { SubtitleContext } from './subtitle-context';
 import { AiStateContext, AiState } from './ai-state-context';
 import { useLocalStorage } from '@/hooks/utils/use-local-storage';
 import { toaster } from '@/components/ui/toaster';
+import { audioManager } from '@/utils/audio-manager';
 
 /**
  * VAD settings configuration interface
@@ -73,6 +74,12 @@ interface VADState {
 
   /** Set auto start microphone when conversation ends state */
   setAutoStartMicOnConvEnd: (value: boolean) => void;
+
+  /** Enable voice interruption when AI is speaking */
+  voiceInterruptEnabled: boolean;
+
+  /** Set voice interruption state */
+  setVoiceInterruptEnabled: (value: boolean) => void;
 }
 
 /**
@@ -89,6 +96,7 @@ const DEFAULT_VAD_STATE = {
   autoStopMic: false,
   autoStartMicOn: false,
   autoStartMicOnConvEnd: false,
+  voiceInterruptEnabled: false,
 };
 
 /**
@@ -131,6 +139,11 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     DEFAULT_VAD_STATE.autoStartMicOnConvEnd,
   );
   const autoStartMicOnConvEndRef = useRef(false);
+  const [voiceInterruptEnabled, setVoiceInterruptEnabledState] = useLocalStorage(
+    'voiceInterruptEnabled',
+    DEFAULT_VAD_STATE.voiceInterruptEnabled,
+  );
+  const voiceInterruptEnabledRef = useRef(false);
 
   // Force update mechanism for ref updates
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
@@ -183,6 +196,10 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     autoStartMicOnConvEndRef.current = autoStartMicOnConvEnd;
   }, []);
 
+  useEffect(() => {
+    voiceInterruptEnabledRef.current = voiceInterruptEnabled;
+  }, [voiceInterruptEnabled]);
+
   /**
    * Update previous triggered probability and force re-render
    */
@@ -196,6 +213,15 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
    */
   const handleSpeechStart = useCallback(() => {
     console.log('Speech started - saving current state');
+    if (
+      aiStateRef.current === 'thinking-speaking'
+      && !voiceInterruptEnabledRef.current
+      && audioManager.hasCurrentAudio()
+    ) {
+      console.log('Voice interruption disabled; ignore speech during AI response');
+      isProcessingRef.current = false;
+      return;
+    }
     // Save current AI state but DON'T change to listening yet
     previousAiStateRef.current = aiStateRef.current;
     isProcessingRef.current = true;
@@ -206,9 +232,16 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
    * Handle real speech start event (confirmed speech)
    */
   const handleSpeechRealStart = useCallback(() => {
+    if (!isProcessingRef.current) {
+      return;
+    }
     console.log('Real speech confirmed - checking if need to interrupt');
     // Check if we need to interrupt based on the PREVIOUS state (before speech started)
-    if (previousAiStateRef.current === 'thinking-speaking') {
+    if (
+      previousAiStateRef.current === 'thinking-speaking'
+      && voiceInterruptEnabledRef.current
+      && audioManager.hasCurrentAudio()
+    ) {
       console.log('Interrupting AI speech due to user speaking');
       interruptRef.current();
     }
@@ -357,6 +390,12 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     forceUpdate();
   }, []);
 
+  const setVoiceInterruptEnabled = useCallback((value: boolean) => {
+    voiceInterruptEnabledRef.current = value;
+    setVoiceInterruptEnabledState(value);
+    forceUpdate();
+  }, []);
+
   // Memoized context value
   const contextValue = useMemo(
     () => ({
@@ -374,6 +413,8 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
       setAutoStartMicOn,
       autoStartMicOnConvEnd: autoStartMicOnConvEndRef.current,
       setAutoStartMicOnConvEnd,
+      voiceInterruptEnabled: voiceInterruptEnabledRef.current,
+      setVoiceInterruptEnabled,
     }),
     [
       micOn,
@@ -381,6 +422,8 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
       stopMic,
       settings,
       updateSettings,
+      voiceInterruptEnabled,
+      setVoiceInterruptEnabled,
     ],
   );
 

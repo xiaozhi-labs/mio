@@ -54,6 +54,21 @@ if [[ "${HOST}" != "0.0.0.0" && "${HOST}" != "::" ]]; then
   echo "Warning: conf.yaml host is '${HOST}'. For public access, set it to 0.0.0.0 or ::." >&2
 fi
 
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm not found; install Node.js to build the web frontend." >&2
+  exit 1
+fi
+
+echo "Building web frontend..."
+(
+  cd "${ROOT_DIR}/web"
+  npm run build:web
+)
+
+echo "Syncing frontend build to ${ROOT_DIR}/frontend"
+rm -rf "${ROOT_DIR}/frontend"/*
+cp -a "${ROOT_DIR}/web/dist/web/." "${ROOT_DIR}/frontend/"
+
 find_pids() {
   local port="$1"
   if command -v lsof >/dev/null 2>&1; then
