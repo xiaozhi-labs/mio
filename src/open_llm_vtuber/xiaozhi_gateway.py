@@ -311,8 +311,8 @@ class XiaozhiGateway:
         if not pcm_bytes:
             return
         pcm_array = np.frombuffer(pcm_bytes, dtype=np.int16)
-        pcm_array = self._apply_tts_fade(pcm_array)
-        wav_bytes = self._pcm_to_wav_bytes(pcm_array)
+        pcm_faded = self._apply_tts_fade(pcm_array)
+        wav_bytes = self._pcm_to_wav_bytes(pcm_faded)
         include_display_text = not self._tts_display_sent
         audio_payload = self._build_audio_payload(
             wav_bytes, pcm_array, include_display_text
@@ -376,6 +376,10 @@ class XiaozhiGateway:
         return {
             "type": "audio",
             "audio": base64.b64encode(wav_bytes).decode("utf-8"),
+            "audio_pcm": base64.b64encode(pcm_array.tobytes()).decode("utf-8"),
+            "audio_format": "pcm16",
+            "audio_sample_rate": self.audio_params.sample_rate,
+            "audio_channels": self.audio_params.channels,
             "volumes": volumes,
             "slice_length": self.audio_params.frame_duration,
             "display_text": display_text,
