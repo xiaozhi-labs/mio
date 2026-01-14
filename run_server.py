@@ -161,6 +161,8 @@ def run(console_log_level: str):
         host=server_config.host,
         port=server_config.port,
         log_level=console_log_level.lower(),
+        ssl_keyfile="certs/server.key",
+        ssl_certfile="certs/server.crt",
     )
 
 

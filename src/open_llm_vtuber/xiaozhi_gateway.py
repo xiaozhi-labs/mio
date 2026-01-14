@@ -15,6 +15,9 @@ from opuslib.api import decoder as opus_decoder_api
 from .agent.output_types import DisplayText
 from .message_handler import message_handler
 
+TTS_STREAM_CHUNK_MS = 300
+TTS_FADE_MS = 10
+
 
 @dataclass
 class XiaozhiAudioParams:
@@ -69,10 +72,16 @@ class XiaozhiGateway:
             audio_params.sample_rate * audio_params.frame_duration // 1000
         )
         self._frame_bytes = self._frame_size * audio_params.channels * 2
+        self._tts_chunk_samples = max(
+            1, audio_params.sample_rate * TTS_STREAM_CHUNK_MS // 1000
+        )
+        self._tts_chunk_bytes = self._tts_chunk_samples * audio_params.channels * 2
         self._pcm_buffer = bytearray()
         self._tts_pcm = bytearray()
         self._listening = False
         self._tts_active = False
+        self._tts_sent_audio = False
+        self._tts_display_sent = False
         self._llm_text = ""
         self._closed = False
 
@@ -261,10 +270,12 @@ class XiaozhiGateway:
         if state == "start":
             self._tts_active = True
             self._tts_pcm.clear()
+            self._tts_sent_audio = False
+            self._tts_display_sent = False
             return
         if state == "stop":
             self._tts_active = False
-            await self._flush_tts_audio()
+            await self._finalize_tts_audio()
             return
 
     async def _handle_audio_frame(self, frame: bytes) -> None:
@@ -282,17 +293,41 @@ class XiaozhiGateway:
             return
         if pcm:
             self._tts_pcm.extend(pcm)
+            await self._flush_tts_chunks(final=False)
 
-    async def _flush_tts_audio(self) -> None:
-        if not self._tts_pcm:
-            await self._send_conversation_end_signals()
+    async def _flush_tts_chunks(self, final: bool) -> None:
+        if self._tts_chunk_bytes <= 0:
             return
-        pcm_bytes = bytes(self._tts_pcm)
-        self._tts_pcm.clear()
+        while len(self._tts_pcm) >= self._tts_chunk_bytes:
+            chunk = bytes(self._tts_pcm[: self._tts_chunk_bytes])
+            del self._tts_pcm[: self._tts_chunk_bytes]
+            await self._send_tts_audio_chunk(chunk)
+        if final and self._tts_pcm:
+            chunk = bytes(self._tts_pcm)
+            self._tts_pcm.clear()
+            await self._send_tts_audio_chunk(chunk)
+
+    async def _send_tts_audio_chunk(self, pcm_bytes: bytes) -> None:
+        if not pcm_bytes:
+            return
         pcm_array = np.frombuffer(pcm_bytes, dtype=np.int16)
+        pcm_array = self._apply_tts_fade(pcm_array)
         wav_bytes = self._pcm_to_wav_bytes(pcm_array)
-        audio_payload = self._build_audio_payload(wav_bytes, pcm_array)
+        include_display_text = not self._tts_display_sent
+        audio_payload = self._build_audio_payload(
+            wav_bytes, pcm_array, include_display_text
+        )
         await self._send_text(json.dumps(audio_payload))
+        self._tts_sent_audio = True
+        if include_display_text:
+            self._tts_display_sent = True
+
+    async def _finalize_tts_audio(self) -> None:
+        await self._flush_tts_chunks(final=True)
+        if not self._tts_sent_audio:
+            await self._send_conversation_end_signals()
+            self._reset_tts_state()
+            return
         await self._send_text(json.dumps({"type": "backend-synth-complete"}))
 
         await message_handler.wait_for_response(
@@ -323,15 +358,21 @@ class XiaozhiGateway:
     def _reset_tts_state(self) -> None:
         self._tts_pcm.clear()
         self._tts_active = False
+        self._tts_sent_audio = False
+        self._tts_display_sent = False
         self._llm_text = ""
 
-    def _build_audio_payload(self, wav_bytes: bytes, pcm_array: np.ndarray) -> dict:
+    def _build_audio_payload(
+        self, wav_bytes: bytes, pcm_array: np.ndarray, include_display_text: bool
+    ) -> dict:
         volumes = self._compute_volumes(pcm_array)
-        display_text = DisplayText(
-            text=self._llm_text,
-            name=self._display_name,
-            avatar=self._avatar,
-        ).to_dict()
+        display_text = None
+        if include_display_text:
+            display_text = DisplayText(
+                text=self._llm_text,
+                name=self._display_name,
+                avatar=self._avatar,
+            ).to_dict()
         return {
             "type": "audio",
             "audio": base64.b64encode(wav_bytes).decode("utf-8"),
@@ -341,6 +382,29 @@ class XiaozhiGateway:
             "actions": None,
             "forwarded": False,
         }
+
+    def _apply_tts_fade(self, pcm_array: np.ndarray) -> np.ndarray:
+        if TTS_FADE_MS <= 0:
+            return pcm_array
+        channels = self.audio_params.channels
+        if channels <= 0:
+            return pcm_array
+        if pcm_array.size < channels * 2:
+            return pcm_array
+        frames = pcm_array.size // channels
+        fade_frames = min(
+            frames // 2,
+            max(1, int(self.audio_params.sample_rate * TTS_FADE_MS / 1000)),
+        )
+        if fade_frames <= 0:
+            return pcm_array
+        audio = pcm_array.astype(np.float32, copy=True).reshape(frames, channels)
+        fade_in = np.linspace(0.0, 1.0, fade_frames, dtype=np.float32)
+        fade_out = np.linspace(1.0, 0.0, fade_frames, dtype=np.float32)
+        audio[:fade_frames] *= fade_in[:, None]
+        audio[-fade_frames:] *= fade_out[:, None]
+        audio = np.clip(np.rint(audio), -32768, 32767).astype(np.int16)
+        return audio.reshape(-1)
 
     def _pcm_to_wav_bytes(self, pcm_array: np.ndarray) -> bytes:
         buffer = io.BytesIO()
