@@ -8,6 +8,7 @@ import { useSubtitle } from '@/context/subtitle-context';
 import { useChatHistory } from '@/context/chat-history-context';
 import { audioTaskQueue } from '@/utils/task-queue';
 import { audioManager } from '@/utils/audio-manager';
+import { pcmPlayer } from '@/utils/pcm-player';
 import { toaster } from '@/components/ui/toaster';
 import { useWebSocket } from '@/context/websocket-context';
 import { DisplayText } from '@/services/websocket-service';
@@ -19,6 +20,10 @@ type Live2DModel = any;
 
 interface AudioTaskOptions {
   audioBase64: string
+  audioPcmBase64: string
+  audioFormat: string
+  audioSampleRate: number
+  audioChannels: number
   volumes: number[]
   sliceLength: number
   displayText?: DisplayText | null
@@ -80,13 +85,24 @@ export const useAudioTask = () => {
       return;
     }
 
-    const { audioBase64, displayText, expressions, forwarded } = options;
+    const {
+      audioBase64,
+      audioPcmBase64,
+      audioFormat,
+      audioSampleRate,
+      audioChannels,
+      displayText,
+      expressions,
+      forwarded,
+    } = options;
+    const canUsePcm = Boolean(audioPcmBase64 && (!audioFormat || audioFormat === 'pcm16'));
+    const hasAudio = Boolean(audioBase64 || canUsePcm);
 
     // Update display text
     if (displayText) {
       appendText(displayText.text);
       appendAI(displayText.text, displayText.name, displayText.avatar);
-      if (audioBase64) {
+      if (hasAudio) {
         updateSubtitle(displayText.text);
       }
       if (!forwarded) {
@@ -100,7 +116,92 @@ export const useAudioTask = () => {
 
     try {
       // Process audio if available
-      if (audioBase64) {
+      if (canUsePcm) {
+        // Get Live2D manager and model
+        const live2dManager = (window as any).getLive2DManager?.();
+        if (!live2dManager) {
+          console.error('Live2D manager not found');
+          resolve();
+          return;
+        }
+
+        const model = live2dManager.getModel(0);
+        if (!model) {
+          console.error('Live2D model not found at index 0');
+          resolve();
+          return;
+        }
+        console.log('Found model for audio playback');
+
+        if (!model._wavFileHandler) {
+          console.warn('Model does not have _wavFileHandler for lip sync');
+        } else {
+          console.log('Model has _wavFileHandler available');
+        }
+
+        // Set expression if available
+        const lappAdapter = (window as any).getLAppAdapter?.();
+        if (lappAdapter && expressions?.[0] !== undefined) {
+          setExpression(
+            expressions[0],
+            lappAdapter,
+            `Set expression to: ${expressions[0]}`,
+          );
+        }
+
+        // Start talk motion
+        if (LAppDefine && LAppDefine.PriorityNormal) {
+          console.log("Starting random 'Talk' motion");
+          model.startRandomMotion(
+            "Talk",
+            LAppDefine.PriorityNormal,
+          );
+        } else {
+          console.warn("LAppDefine.PriorityNormal not found - cannot start talk motion");
+        }
+
+        const audioHandle = { stop: () => pcmPlayer.stopAll() };
+        audioManager.setCurrentAudio(audioHandle, model);
+        let isFinished = false;
+
+        const cleanup = () => {
+          audioManager.clearCurrentAudio(audioHandle);
+          if (!isFinished) {
+            isFinished = true;
+            resolve();
+          }
+        };
+
+        const rate = audioSampleRate || 16000;
+        const channels = audioChannels || 1;
+        const enqueueResult = pcmPlayer.enqueue(audioPcmBase64, rate, channels, cleanup);
+
+        if (model._wavFileHandler) {
+          const blob = pcmPlayer.makeWavBlob(enqueueResult.pcm, rate, channels);
+          const url = URL.createObjectURL(blob);
+
+          if (!model._wavFileHandler._initialized) {
+            console.log('Applying enhanced lip sync');
+            model._wavFileHandler._initialized = true;
+
+            const originalUpdate = model._wavFileHandler.update.bind(model._wavFileHandler);
+            model._wavFileHandler.update = function (deltaTimeSeconds: number) {
+              const result = originalUpdate(deltaTimeSeconds);
+              // @ts-ignore
+              this._lastRms = Math.min(2.0, this._lastRms * 2.0);
+              return result;
+            };
+          }
+
+          if (audioManager.hasCurrentAudio()) {
+            model._wavFileHandler.start(url);
+          } else {
+            console.warn('WavFileHandler start skipped - audio was stopped');
+          }
+
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+      } else if (audioBase64) {
         const audioDataUrl = `data:audio/wav;base64,${audioBase64}`;
 
         // Get Live2D manager and model

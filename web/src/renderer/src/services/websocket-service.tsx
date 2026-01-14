@@ -21,6 +21,10 @@ interface BackgroundFile {
 export interface AudioPayload {
   type: 'audio';
   audio?: string;
+  audio_pcm?: string;
+  audio_format?: string;
+  audio_sample_rate?: number;
+  audio_channels?: number;
   volumes?: number[];
   slice_length?: number;
   display_text?: DisplayText;
@@ -57,6 +61,10 @@ export interface MessageEvent {
   timestamp: string;
   type: string;
   audio?: string;
+  audio_pcm?: string;
+  audio_format?: string;
+  audio_sample_rate?: number;
+  audio_channels?: number;
   volumes?: number[];
   slice_length?: number;
   files?: BackgroundFile[];

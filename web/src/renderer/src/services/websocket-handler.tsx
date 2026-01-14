@@ -159,6 +159,10 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
           console.log("actions", message.actions);
           addAudioTask({
             audioBase64: message.audio || '',
+            audioPcmBase64: message.audio_pcm || '',
+            audioFormat: message.audio_format || '',
+            audioSampleRate: message.audio_sample_rate || 0,
+            audioChannels: message.audio_channels || 0,
             volumes: message.volumes || [],
             sliceLength: message.slice_length || 0,
             displayText: message.display_text || null,

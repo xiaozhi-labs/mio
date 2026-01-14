@@ -2,14 +2,16 @@
  * Global audio manager for handling audio playback and interruption
  * This ensures all components share the same audio reference
  */
+type AudioHandle = HTMLAudioElement | { stop?: () => void };
+
 class AudioManager {
-  private currentAudio: HTMLAudioElement | null = null;
+  private currentAudio: AudioHandle | null = null;
   private currentModel: any | null = null;
 
   /**
    * Set the current playing audio
    */
-  setCurrentAudio(audio: HTMLAudioElement, model: any) {
+  setCurrentAudio(audio: AudioHandle, model: any) {
     this.currentAudio = audio;
     this.currentModel = model;
   }
@@ -23,9 +25,15 @@ class AudioManager {
       const audio = this.currentAudio;
       
       // Stop audio playback
-      audio.pause();
-      audio.src = '';
-      audio.load();
+      if ('pause' in audio && typeof audio.pause === 'function') {
+        audio.pause();
+        // @ts-expect-error - HTMLAudioElement fields
+        audio.src = '';
+        // @ts-expect-error - HTMLAudioElement fields
+        audio.load?.();
+      } else if ('stop' in audio && typeof audio.stop === 'function') {
+        audio.stop();
+      }
 
       // Stop Live2D lip sync
       const model = this.currentModel;
@@ -60,7 +68,7 @@ class AudioManager {
   /**
    * Clear the current audio reference (called when audio ends naturally)
    */
-  clearCurrentAudio(audio: HTMLAudioElement) {
+  clearCurrentAudio(audio: AudioHandle) {
     if (this.currentAudio === audio) {
       this.currentAudio = null;
       this.currentModel = null;
