@@ -5,6 +5,15 @@ system_config:
   port: 12393
   # New setting for alternative configurations
   config_alts_dir: 'characters'
+  xiaozhi_backend_url: 'ws://localhost:8002/xiaozhi/v1/'
+  xiaozhi_protocol_version: 1
+  xiaozhi_audio_format: 'opus'
+  xiaozhi_sample_rate: 16000
+  xiaozhi_channels: 1
+  xiaozhi_frame_duration: 20
+  xiaozhi_device_id: '8A:0D:33:D7:19:7B'
+  xiaozhi_client_id: ''
+  xiaozhi_access_token: ''
   # Tool prompts that will be appended to the persona prompt
   tool_prompts:
     # This will be appended to the end of system prompt to let LLM include keywords to control facial expressions.

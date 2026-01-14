@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Callable, TypedDict
 from fastapi import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 import asyncio
 import json
 from enum import Enum
@@ -15,6 +16,7 @@ from .chat_group import (
 )
 from .message_handler import message_handler
 from .utils.stream_audio import prepare_audio_payload
+from .xiaozhi_gateway import XiaozhiGateway, XiaozhiAudioParams
 from .chat_history_manager import (
     create_new_history,
     get_history,
@@ -23,9 +25,7 @@ from .chat_history_manager import (
 )
 from .config_manager.utils import scan_config_alts_directory, scan_bg_directory
 from .conversations.conversation_handler import (
-    handle_conversation_trigger,
     handle_group_interrupt,
-    handle_individual_interrupt,
 )
 
 
@@ -69,6 +69,7 @@ class WebSocketHandler:
         self.current_conversation_tasks: Dict[str, Optional[asyncio.Task]] = {}
         self.default_context_cache = default_context_cache
         self.received_data_buffers: Dict[str, np.ndarray] = {}
+        self.xiaozhi_gateways: Dict[str, XiaozhiGateway] = {}
 
         # Message handlers mapping
         self._message_handlers = self._init_message_handlers()
@@ -85,10 +86,10 @@ class WebSocketHandler:
             "delete-history": self._handle_delete_history,
             "interrupt-signal": self._handle_interrupt,
             "mic-audio-data": self._handle_audio_data,
-            "mic-audio-end": self._handle_conversation_trigger,
+            "mic-audio-end": self._handle_audio_end,
             "raw-audio-data": self._handle_raw_audio_data,
-            "text-input": self._handle_conversation_trigger,
-            "ai-speak-signal": self._handle_conversation_trigger,
+            "text-input": self._handle_text_input,
+            "ai-speak-signal": self._handle_ai_speak_signal,
             "fetch-configs": self._handle_fetch_configs,
             "switch-config": self._handle_config_switch,
             "fetch-backgrounds": self._handle_fetch_backgrounds,
@@ -119,6 +120,10 @@ class WebSocketHandler:
                 websocket, client_uid, session_service_context
             )
 
+            await self._init_xiaozhi_gateway(
+                websocket.send_text, client_uid, session_service_context
+            )
+
             await self._send_initial_messages(
                 websocket, client_uid, session_service_context
             )
@@ -145,6 +150,45 @@ class WebSocketHandler:
 
         self.chat_group_manager.client_group_map[client_uid] = ""
         await self.send_group_update(websocket, client_uid)
+
+    async def _init_xiaozhi_gateway(
+        self,
+        websocket_send: Callable,
+        client_uid: str,
+        context: ServiceContext,
+    ) -> None:
+        system_config = context.system_config
+        audio_params = XiaozhiAudioParams(
+            format=system_config.xiaozhi_audio_format,
+            sample_rate=system_config.xiaozhi_sample_rate,
+            channels=system_config.xiaozhi_channels,
+            frame_duration=system_config.xiaozhi_frame_duration,
+        )
+        gateway = XiaozhiGateway(
+            backend_url=system_config.xiaozhi_backend_url,
+            protocol_version=system_config.xiaozhi_protocol_version,
+            audio_params=audio_params,
+            send_text=websocket_send,
+            client_uid=client_uid,
+            device_id=system_config.xiaozhi_device_id,
+            client_id=system_config.xiaozhi_client_id,
+            access_token=system_config.xiaozhi_access_token,
+            display_name=context.character_config.character_name,
+            avatar=context.character_config.avatar,
+        )
+        try:
+            await gateway.connect()
+        except Exception as exc:
+            await websocket_send(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": f"Failed to connect XiaoZhi backend: {exc}",
+                    }
+                )
+            )
+            raise
+        self.xiaozhi_gateways[client_uid] = gateway
 
     async def _send_initial_messages(
         self,
@@ -223,10 +267,21 @@ class WebSocketHandler:
                     logger.error("Invalid JSON received")
                     continue
                 except Exception as e:
+                    if (
+                        "Cannot write to closing transport" in str(e)
+                        or websocket.client_state != WebSocketState.CONNECTED
+                    ):
+                        logger.info(
+                            f"Client {client_uid} connection closing, stop processing"
+                        )
+                        break
                     logger.error(f"Error processing message: {e}")
-                    await websocket.send_text(
-                        json.dumps({"type": "error", "message": str(e)})
-                    )
+                    try:
+                        await websocket.send_text(
+                            json.dumps({"type": "error", "message": str(e)})
+                        )
+                    except Exception:
+                        break
                     continue
 
         except WebSocketDisconnect:
@@ -298,6 +353,9 @@ class WebSocketHandler:
         )
 
         # Clean up other client data
+        gateway = self.xiaozhi_gateways.pop(client_uid, None)
+        if gateway:
+            await gateway.close()
         self.client_connections.pop(client_uid, None)
         self.client_contexts.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
@@ -317,6 +375,9 @@ class WebSocketHandler:
 
     async def _cleanup_failed_connection(self, client_uid: str) -> None:
         """Clean up failed connection data"""
+        gateway = self.xiaozhi_gateways.pop(client_uid, None)
+        if gateway:
+            await gateway.close()
         self.client_connections.pop(client_uid, None)
         self.client_contexts.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
@@ -370,26 +431,9 @@ class WebSocketHandler:
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
         """Handle conversation interruption"""
-        heard_response = data.get("text", "")
-        context = self.client_contexts[client_uid]
-        group = self.chat_group_manager.get_client_group(client_uid)
-
-        if group and len(group.members) > 1:
-            await handle_group_interrupt(
-                group_id=group.group_id,
-                heard_response=heard_response,
-                current_conversation_tasks=self.current_conversation_tasks,
-                chat_group_manager=self.chat_group_manager,
-                client_contexts=self.client_contexts,
-                broadcast_to_group=self.broadcast_to_group,
-            )
-        else:
-            await handle_individual_interrupt(
-                client_uid=client_uid,
-                current_conversation_tasks=self.current_conversation_tasks,
-                context=context,
-                heard_response=heard_response,
-            )
+        gateway = self.xiaozhi_gateways.get(client_uid)
+        if gateway:
+            await gateway.handle_abort()
 
     async def _handle_history_list_request(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
@@ -480,52 +524,64 @@ class WebSocketHandler:
     ) -> None:
         """Handle incoming audio data"""
         audio_data = data.get("audio", [])
-        if audio_data:
-            self.received_data_buffers[client_uid] = np.append(
-                self.received_data_buffers[client_uid],
-                np.array(audio_data, dtype=np.float32),
-            )
+        if not audio_data:
+            return
+        gateway = self.xiaozhi_gateways.get(client_uid)
+        if gateway:
+            await gateway.handle_audio_data(audio_data)
 
     async def _handle_raw_audio_data(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
         """Handle incoming raw audio data for VAD processing"""
-        context = self.client_contexts[client_uid]
         chunk = data.get("audio", [])
-        if chunk:
-            for audio_bytes in context.vad_engine.detect_speech(chunk):
-                if audio_bytes == b"<|PAUSE|>":
-                    await websocket.send_text(
-                        json.dumps({"type": "control", "text": "interrupt"})
-                    )
-                elif audio_bytes == b"<|RESUME|>":
-                    pass
-                elif len(audio_bytes) > 1024:
-                    # Detected audio activity (voice)
-                    self.received_data_buffers[client_uid] = np.append(
-                        self.received_data_buffers[client_uid],
-                        np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32),
-                    )
-                    await websocket.send_text(
-                        json.dumps({"type": "control", "text": "mic-audio-end"})
-                    )
+        if not chunk:
+            return
+        if isinstance(chunk, list) and chunk and isinstance(chunk[0], (int, float)):
+            gateway = self.xiaozhi_gateways.get(client_uid)
+            if gateway:
+                await gateway.handle_audio_data(chunk)
+            return
 
-    async def _handle_conversation_trigger(
+    async def _handle_audio_end(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
-        """Handle triggers that start a conversation"""
-        await handle_conversation_trigger(
-            msg_type=data.get("type", ""),
-            data=data,
-            client_uid=client_uid,
-            context=self.client_contexts[client_uid],
-            websocket=websocket,
-            client_contexts=self.client_contexts,
-            client_connections=self.client_connections,
-            chat_group_manager=self.chat_group_manager,
-            received_data_buffers=self.received_data_buffers,
-            current_conversation_tasks=self.current_conversation_tasks,
-            broadcast_to_group=self.broadcast_to_group,
+        """Handle audio end signals to finalize XiaoZhi listen."""
+        gateway = self.xiaozhi_gateways.get(client_uid)
+        if gateway:
+            await gateway.handle_audio_end()
+
+    async def _handle_text_input(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Forward text input to XiaoZhi gateway."""
+        gateway = self.xiaozhi_gateways.get(client_uid)
+        if not gateway:
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": "XiaoZhi gateway is not available.",
+                    }
+                )
+            )
+            return
+        text = data.get("text", "")
+        if not text:
+            return
+        await gateway.handle_text_input(text)
+
+    async def _handle_ai_speak_signal(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Reject proactive speak when XiaoZhi gateway is active."""
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "type": "error",
+                    "message": "Proactive speak is not supported in XiaoZhi gateway mode.",
+                }
+            )
         )
 
     async def _handle_fetch_configs(

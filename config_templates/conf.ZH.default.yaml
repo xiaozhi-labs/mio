@@ -10,6 +10,15 @@ system_config:
   host: 'localhost' # 服务器监听的地址，'0.0.0.0' 表示监听所有网络接口；如果需要安全，可以使用 '127.0.0.1'（仅本地访问）
   port: 12393 # 服务器监听的端口
   config_alts_dir: 'characters' # 用于存放替代配置的目录
+  xiaozhi_backend_url: 'ws://localhost:8002/xiaozhi/v1/' # XiaoZhi 后端 WS 地址
+  xiaozhi_protocol_version: 1 # XiaoZhi 协议版本
+  xiaozhi_audio_format: 'opus' # XiaoZhi 音频格式
+  xiaozhi_sample_rate: 16000 # XiaoZhi 采样率
+  xiaozhi_channels: 1 # XiaoZhi 声道数
+  xiaozhi_frame_duration: 20 # XiaoZhi 帧时长（毫秒）
+  xiaozhi_device_id: '8A:0D:33:D7:19:7B' # XiaoZhi 设备ID（Device-Id）
+  xiaozhi_client_id: '' # XiaoZhi 客户端ID（Client-Id），留空自动生成
+  xiaozhi_access_token: '' # XiaoZhi 访问令牌（Authorization）
   tool_prompts: # 要插入到角色提示词中的工具提示词
     live2d_expression_prompt: 'live2d_expression_prompt' # 将追加到系统提示末尾，让 LLM（大型语言模型）包含控制面部表情的关键字。支持的关键字将自动加载到 `[<insert_emomap_keys>]` 的位置。
     # 启用 think_tag_prompt 可让不具备思考输出的 LLM 也能展示内心想法、心理活动和动作（以括号形式呈现），但不会进行语音合成。更多详情请参考 think_tag_prompt。
