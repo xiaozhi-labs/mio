@@ -46,6 +46,7 @@ const Background = memo(({ children }: { children?: React.ReactNode }) => {
           alt="background"
         />
       )}
+      <Box {...canvasStyles.background.overlay} />
       {children}
     </Box>
   );

@@ -39,7 +39,7 @@ export const useAudioTask = () => {
   const { t } = useTranslation();
   const { aiState, backendSynthComplete, setBackendSynthComplete } = useAiState();
   const { setSubtitleText } = useSubtitle();
-  const { appendResponse, appendAIMessage } = useChatHistory();
+  const { messages, appendResponse, appendAIMessage } = useChatHistory();
   const { sendMessage } = useWebSocket();
   const { setExpression } = useLive2DExpression();
 
@@ -47,6 +47,7 @@ export const useAudioTask = () => {
   const stateRef = useRef({
     aiState,
     setSubtitleText,
+    messages,
     appendResponse,
     appendAIMessage,
   });
@@ -56,6 +57,7 @@ export const useAudioTask = () => {
   stateRef.current = {
     aiState,
     setSubtitleText,
+    messages,
     appendResponse,
     appendAIMessage,
   };
@@ -74,6 +76,7 @@ export const useAudioTask = () => {
     const {
       aiState: currentAiState,
       setSubtitleText: updateSubtitle,
+      messages: currentMessages,
       appendResponse: appendText,
       appendAIMessage: appendAI,
     } = stateRef.current;
@@ -100,8 +103,16 @@ export const useAudioTask = () => {
 
     // Update display text
     if (displayText) {
-      appendText(displayText.text);
-      appendAI(displayText.text, displayText.name, displayText.avatar);
+      const lastMessage = currentMessages[currentMessages.length - 1];
+      const isDuplicate =
+        lastMessage?.role === 'ai'
+        && lastMessage.type !== 'tool_call_status'
+        && lastMessage.content === displayText.text;
+
+      if (!isDuplicate) {
+        appendText(displayText.text);
+        appendAI(displayText.text, displayText.name, displayText.avatar);
+      }
       if (hasAudio) {
         updateSubtitle(displayText.text);
       }

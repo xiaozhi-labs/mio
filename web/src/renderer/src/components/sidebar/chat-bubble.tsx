@@ -17,8 +17,8 @@ export function ChatBubble({ message, isSelected, onClick }: ChatBubbleProps): J
     <Box
       onClick={onClick}
       cursor="pointer"
-      bg={isSelected ? 'gray.100' : 'transparent'}
-      _hover={{ bg: 'gray.50' }}
+      bg={isSelected ? 'rgba(63, 224, 200, 0.14)' : 'transparent'}
+      _hover={{ bg: 'rgba(255, 255, 255, 0.06)' }}
       p={2}
       borderRadius="md"
       transition="background-color 0.2s"
@@ -28,22 +28,22 @@ export function ChatBubble({ message, isSelected, onClick }: ChatBubbleProps): J
           <Avatar
             size="sm"
             name={message.name || (isAI ? 'AI' : 'Me')}
-            bg={isAI ? 'blue.500' : 'green.500'}
-            color="white"
+            bg={isAI ? 'var(--app-accent-3)' : 'var(--app-accent)'}
+            color="#0b1116"
           />
         </AvatarGroup>
         <Box flex={1}>
-          <Text fontSize="sm" fontWeight="bold" color="gray.700">
+          <Text fontSize="sm" fontWeight="bold" color="var(--app-text)">
             {message.name || (isAI ? 'AI' : 'Me')}
           </Text>
           <Text
             fontSize="sm"
-            color="gray.600"
+            color="var(--app-text-muted)"
             truncate
           >
             {message.content}
           </Text>
-          <Text fontSize="xs" color="gray.400" mt={1}>
+          <Text fontSize="xs" color="var(--app-text-muted)" mt={1}>
             {new Date(message.timestamp).toLocaleTimeString()}
           </Text>
         </Box>

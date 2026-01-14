@@ -31,7 +31,13 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
   const { aiState, setAiState, backendSynthComplete, setBackendSynthComplete } = useAiState();
   const { setModelInfo } = useLive2DConfig();
   const { setSubtitleText } = useSubtitle();
-  const { clearResponse, setForceNewMessage, appendHumanMessage, appendOrUpdateToolCallMessage } = useChatHistory();
+  const {
+    clearResponse,
+    setForceNewMessage,
+    appendHumanMessage,
+    appendOrUpdateToolCallMessage,
+    upsertAIMessage,
+  } = useChatHistory();
   const { addAudioTask } = useAudioTask();
   const bgUrlContext = useBgUrl();
   const { confUid, setConfName, setConfUid, setConfigFiles } = useConfig();
@@ -127,6 +133,13 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
       case 'full-text':
         if (message.text) {
           setSubtitleText(message.text);
+          if (
+            message.text !== 'Thinking...'
+            && message.text !== 'Connection established'
+            && message.text !== 'AI wants to speak something...'
+          ) {
+            upsertAIMessage(message.text);
+          }
         }
         break;
       case 'config-files':
@@ -319,7 +332,7 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
       default:
         console.warn('Unknown message type:', message.type);
     }
-  }, [aiState, addAudioTask, appendHumanMessage, baseUrl, bgUrlContext, setAiState, setConfName, setConfUid, setConfigFiles, setCurrentHistoryUid, setHistoryList, setMessages, setModelInfo, setSubtitleText, startMic, stopMic, setSelfUid, setGroupMembers, setIsOwner, backendSynthComplete, setBackendSynthComplete, clearResponse, handleControlMessage, appendOrUpdateToolCallMessage, interrupt, setBrowserViewData, t, captureCamera, captureScreen]);
+  }, [aiState, addAudioTask, appendHumanMessage, baseUrl, bgUrlContext, setAiState, setConfName, setConfUid, setConfigFiles, setCurrentHistoryUid, setHistoryList, setMessages, setModelInfo, setSubtitleText, startMic, stopMic, setSelfUid, setGroupMembers, setIsOwner, backendSynthComplete, setBackendSynthComplete, clearResponse, handleControlMessage, appendOrUpdateToolCallMessage, upsertAIMessage, interrupt, setBrowserViewData, t, captureCamera, captureScreen]);
 
   useEffect(() => {
     wsService.connect(wsUrl);

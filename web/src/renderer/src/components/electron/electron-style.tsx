@@ -21,8 +21,8 @@ export const inputSubtitleStyles = {
     rounded: 'xl',
     overflow: 'hidden',
     boxShadow: 'lg',
-    bg: 'blackAlpha.700',
-    backdropFilter: 'blur(8px)',
+    bg: 'var(--app-panel-strong)',
+    backdropFilter: 'blur(12px)',
     css: { WebkitUserSelect: 'none' },
   },
 
@@ -34,46 +34,46 @@ export const inputSubtitleStyles = {
   },
 
   messageText: {
-    color: 'white',
+    color: 'var(--app-text)',
     fontSize: 'sm',
     lineHeight: '1.5',
     transition: 'all 0.3s',
   },
 
   statusBox: {
-    bg: 'blackAlpha.600',
+    bg: 'var(--app-panel)',
     p: '3',
     borderTop: '1px',
-    borderColor: 'whiteAlpha.200',
+    borderColor: 'var(--app-border)',
   },
 
   statusText: {
     fontSize: 'xs',
-    color: 'whiteAlpha.800',
+    color: 'var(--app-text-muted)',
     transition: 'all 0.3s',
   },
 
   iconButton: {
     size: 'xs',
     variant: 'ghost',
-    color: 'whiteAlpha.800',
-    _hover: { bg: 'whiteAlpha.200' },
+    color: 'var(--app-text-muted)',
+    _hover: { bg: 'rgba(255, 255, 255, 0.12)' },
   },
 
   inputBox: {
-    bg: 'blackAlpha.600',
+    bg: 'var(--app-panel)',
     borderTop: '1px',
-    borderColor: 'whiteAlpha.200',
+    borderColor: 'var(--app-border)',
   },
 
   input: {
     size: 'sm',
-    bg: 'blackAlpha.500',
-    color: 'white',
-    _placeholder: { color: 'whiteAlpha.500' },
-    borderColor: 'whiteAlpha.300',
+    bg: 'rgba(255, 255, 255, 0.06)',
+    color: 'var(--app-text)',
+    _placeholder: { color: 'var(--app-text-muted)' },
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     _focus: {
-      borderColor: 'whiteAlpha.500',
+      borderColor: 'rgba(255, 255, 255, 0.35)',
       outline: 'none',
     },
     flex: '1',
@@ -81,11 +81,11 @@ export const inputSubtitleStyles = {
 
   sendButton: {
     p: '1.5',
-    bg: 'blackAlpha.500',
+    bg: 'rgba(255, 255, 255, 0.08)',
     rounded: 'lg',
-    _hover: { bg: 'blackAlpha.600' },
+    _hover: { bg: 'rgba(255, 255, 255, 0.14)' },
     transition: 'colors',
-    color: 'whiteAlpha.800',
+    color: 'var(--app-text)',
     size: 'sm',
   },
 
@@ -104,11 +104,11 @@ export const inputSubtitleStyles = {
     height: '6',
     padding: 0,
     variant: 'ghost',
-    color: 'whiteAlpha.400',
+    color: 'var(--app-text-muted)',
     bg: 'transparent',
     _hover: {
-      bg: 'blackAlpha.300',
-      color: 'whiteAlpha.800',
+      bg: 'rgba(255, 255, 255, 0.12)',
+      color: 'var(--app-text)',
     },
     zIndex: 10,
   },

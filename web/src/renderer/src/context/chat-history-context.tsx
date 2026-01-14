@@ -15,6 +15,7 @@ interface ChatHistoryState {
   currentHistoryUid: string | null;
   appendHumanMessage: (content: string) => void;
   appendAIMessage: (content: string, name?: string, avatar?: string) => void;
+  upsertAIMessage: (content: string, name?: string, avatar?: string) => void;
   appendOrUpdateToolCallMessage: (toolMessageData: Partial<Message>) => void; // Accept partial data
   setMessages: (messages: Message[]) => void; // Use the unified Message type
   setHistoryList: (
@@ -109,6 +110,37 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
       ];
     });
   }, [forceNewMessage, setForceNewMessage]);
+
+  /**
+   * Create or replace the latest AI text message with full content.
+   * This is useful for streaming updates that send the entire text each time.
+   */
+  const upsertAIMessage = useCallback((content: string, name?: string, avatar?: string) => {
+    setMessages((prevMessages) => {
+      const lastMessage = prevMessages[prevMessages.length - 1];
+      if (lastMessage && lastMessage.role === 'ai' && lastMessage.type !== 'tool_call_status') {
+        return [
+          ...prevMessages.slice(0, -1),
+          {
+            ...lastMessage,
+            content,
+            name: name ?? lastMessage.name,
+            avatar: avatar ?? lastMessage.avatar,
+            timestamp: new Date().toISOString(),
+          },
+        ];
+      }
+      return [...prevMessages, {
+        id: Date.now().toString(),
+        content,
+        role: 'ai',
+        type: 'text',
+        timestamp: new Date().toISOString(),
+        name,
+        avatar,
+      }];
+    });
+  }, []);
 
   /**
    * Append or update a Tool Call message using its tool_id
@@ -207,6 +239,7 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
       currentHistoryUid,
       appendHumanMessage,
       appendAIMessage,
+      upsertAIMessage,
       appendOrUpdateToolCallMessage, // Add to context value
       setMessages,
       setHistoryList,
@@ -224,6 +257,7 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
       currentHistoryUid,
       appendHumanMessage,
       appendAIMessage,
+      upsertAIMessage,
       appendOrUpdateToolCallMessage, // Add dependency
       updateHistoryList,
       fullResponse,

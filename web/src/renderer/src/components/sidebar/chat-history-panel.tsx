@@ -24,6 +24,64 @@ function ChatHistoryPanel(): JSX.Element {
   const { confName } = useConfig();
   const { baseUrl } = useWebSocket();
   const userName = "Me";
+  const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+
+  const buildMarkdownNodes = (content: string) => {
+    const nodes: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let hasImages = false;
+    markdownImageRegex.lastIndex = 0;
+
+    while ((match = markdownImageRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        const textPart = content.slice(lastIndex, match.index);
+        if (textPart) {
+          nodes.push(
+            <Text key={`text-${lastIndex}`} whiteSpace="pre-wrap" wordBreak="break-word">
+              {textPart}
+            </Text>,
+          );
+        }
+      }
+
+      const altText = match[1] || 'image';
+      const url = match[2].trim();
+      if (url) {
+        hasImages = true;
+        nodes.push(
+          <Box key={`img-${match.index}`} maxW="100%">
+            <img
+              src={url}
+              alt={altText}
+              loading="lazy"
+              style={{
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: '6px',
+                display: 'block',
+              }}
+            />
+          </Box>,
+        );
+      }
+
+      lastIndex = markdownImageRegex.lastIndex;
+    }
+
+    if (lastIndex < content.length) {
+      const textPart = content.slice(lastIndex);
+      if (textPart) {
+        nodes.push(
+          <Text key={`text-${lastIndex}`} whiteSpace="pre-wrap" wordBreak="break-word">
+            {textPart}
+          </Text>,
+        );
+      }
+    }
+
+    return { nodes, hasImages };
+  };
 
   const validMessages = messages.filter((msg) => msg.content || // Keep messages with content
      (msg.type === 'tool_call_status' && msg.status === 'running') || // Keep running tools
@@ -35,7 +93,7 @@ function ChatHistoryPanel(): JSX.Element {
     <Box
       h="full"
       overflow="hidden"
-      bg="gray.900"
+      bg="var(--app-panel-strong)"
     >
       <Global styles={chatPanelStyles} />
       <MainContainer>
@@ -47,7 +105,7 @@ function ChatHistoryPanel(): JSX.Element {
                 alignItems="center"
                 justifyContent="center"
                 height="100%"
-                color="whiteAlpha.500"
+                color="var(--app-text-muted)"
                 fontSize="sm"
               >
                 {t('sidebar.noMessages')}
@@ -96,6 +154,7 @@ function ChatHistoryPanel(): JSX.Element {
                   );
                 } 
                 // Render Standard Chat Message (human or ai text)
+                const { nodes, hasImages } = buildMarkdownNodes(msg.content);
                 return (
                   <ChatMessage
                     key={msg.id}
@@ -107,10 +166,18 @@ function ChatHistoryPanel(): JSX.Element {
                         : userName,
                       direction: msg.role === 'ai' ? 'incoming' : 'outgoing',
                       position: 'single',
+                      type: hasImages ? 'custom' : 'text',
                     }}
                     avatarPosition={msg.role === 'ai' ? 'tl' : 'tr'}
                     avatarSpacer={false}
                   >
+                    {hasImages && (
+                      <ChatMessage.CustomContent>
+                        <Box display="flex" flexDirection="column" gap="8px">
+                          {nodes}
+                        </Box>
+                      </ChatMessage.CustomContent>
+                    )}
                     <ChatAvatar>
                       {msg.role === 'ai' ? (
                         msg.avatar ? (

@@ -118,7 +118,7 @@ export function InputSubtitle() {
         )}
 
         <Box {...inputSubtitleStyles.statusBox}>
-          <Flex align="center" justify="space-between" color="whiteAlpha.700">
+          <Flex align="center" justify="space-between" color="var(--app-text-muted)">
             <Flex align="center" gap="2">
               <LuBell size={16} />
               <Text {...inputSubtitleStyles.statusText}>

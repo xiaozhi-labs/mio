@@ -30,7 +30,7 @@ function CameraPlaceholder() {
       gap={2}
     >
       <FiCamera size={24} />
-      <Text color="whiteAlpha.600" fontSize="sm" textAlign="center">
+      <Text color="var(--app-text-muted)" fontSize="sm" textAlign="center">
         {t('footer.cameraControl')}
       </Text>
     </Box>
@@ -95,7 +95,7 @@ function CameraPanel(): JSX.Element {
           cursor="pointer"
           position="relative"
           _hover={{
-            bg: 'whiteAlpha.100',
+            bg: 'rgba(255, 255, 255, 0.12)',
           }}
         >
           {error ? (

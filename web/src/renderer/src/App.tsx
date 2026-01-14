@@ -124,15 +124,8 @@ function AppContent(): JSX.Element {
               <Box position="absolute" top="20px" left="20px" zIndex={10}>
                 <WebSocketStatus />
               </Box>
-              <Box
-                position="absolute"
-                bottom={isFooterCollapsed ? "39px" : "135px"}
-                left="50%"
-                transform="translateX(-50%)"
-                zIndex={10}
-                width="60%"
-              >
-                <Subtitle />
+              <Box position="absolute" inset="0" zIndex={10} pointerEvents="none">
+                <Subtitle bottomOffset={isFooterCollapsed ? "39px" : "135px"} />
               </Box>
               <Box
                 {...layoutStyles.footer}

@@ -42,7 +42,7 @@ const ToggleButton = memo(({ isCollapsed, onToggle }: ToggleButtonProps) => (
   <Box
     {...footerStyles.footer.toggleButton}
     onClick={onToggle}
-    color="whiteAlpha.500"
+    color="var(--app-text-muted)"
     style={{
       transform: isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)',
     }}

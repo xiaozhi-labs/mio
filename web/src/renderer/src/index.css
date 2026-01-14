@@ -1,7 +1,58 @@
-body, html {
-    margin: 0;
-    padding: 0;
-    overflow: visible;
-    background-color: transparent;
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-sans: "Space Grotesk", "Noto Sans", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --app-bg: #0c1016;
+  --app-bg-2: #1a2231;
+  --app-panel: rgba(16, 20, 28, 0.72);
+  --app-panel-strong: rgba(20, 24, 34, 0.92);
+  --app-panel-weak: rgba(255, 255, 255, 0.06);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-text: #f4f6f8;
+  --app-text-muted: #b8c0cc;
+  --app-accent: #3fe0c8;
+  --app-accent-2: #f8b458;
+  --app-accent-3: #7aa2ff;
+  --app-shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
+  --app-subtitle-bg: rgba(10, 14, 20, 0.6);
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  background-color: transparent;
+  color: var(--app-text);
+  font-family: var(--font-sans);
+}
+
+#root {
+  height: 100%;
+}
+
+@keyframes appFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -39,8 +39,8 @@ function HelpIcon({ content }: HelpIconProps): JSX.Element {
     >
       <Box
         as={HiQuestionMarkCircle}
-        color="gray.400"
-        _hover={{ color: 'gray.600' }}
+        color="var(--app-text-muted)"
+        _hover={{ color: 'var(--app-text)' }}
         cursor="help"
         w="16px"
         h="16px"
