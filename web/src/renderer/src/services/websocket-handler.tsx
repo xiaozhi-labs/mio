@@ -21,6 +21,7 @@ import { useLocalStorage } from '@/hooks/utils/use-local-storage';
 import { useGroup } from '@/context/group-context';
 import { useInterrupt } from '@/hooks/utils/use-interrupt';
 import { useBrowser } from '@/context/browser-context';
+import { useMediaCapture } from '@/hooks/utils/use-media-capture';
 
 function WebSocketHandler({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -40,6 +41,7 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
   const autoStartMicOnConvEndRef = useRef(autoStartMicOnConvEnd);
   const { interrupt } = useInterrupt();
   const { setBrowserViewData } = useBrowser();
+  const { captureCamera, captureScreen } = useMediaCapture();
 
   useEffect(() => {
     autoStartMicOnConvEndRef.current = autoStartMicOnConvEnd;
@@ -290,10 +292,34 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
           console.warn('Received incomplete tool_call_status message:', message);
         }
         break;
+      case 'mcp-capture-request':
+        void (async () => {
+          const requestId = message.request_id || '';
+          const source = message.source === 'screen' ? 'screen' : 'camera';
+          const capture =
+            source === 'screen' ? await captureScreen() : await captureCamera();
+          if (!capture) {
+            wsService.sendMessage({
+              type: 'mcp-capture-response',
+              request_id: requestId,
+              success: false,
+              message: `No ${source} stream available`,
+            });
+            return;
+          }
+          wsService.sendMessage({
+            type: 'mcp-capture-response',
+            request_id: requestId,
+            success: true,
+            image: capture.data,
+            mime_type: capture.mime_type,
+          });
+        })();
+        break;
       default:
         console.warn('Unknown message type:', message.type);
     }
-  }, [aiState, addAudioTask, appendHumanMessage, baseUrl, bgUrlContext, setAiState, setConfName, setConfUid, setConfigFiles, setCurrentHistoryUid, setHistoryList, setMessages, setModelInfo, setSubtitleText, startMic, stopMic, setSelfUid, setGroupMembers, setIsOwner, backendSynthComplete, setBackendSynthComplete, clearResponse, handleControlMessage, appendOrUpdateToolCallMessage, interrupt, setBrowserViewData, t]);
+  }, [aiState, addAudioTask, appendHumanMessage, baseUrl, bgUrlContext, setAiState, setConfName, setConfUid, setConfigFiles, setCurrentHistoryUid, setHistoryList, setMessages, setModelInfo, setSubtitleText, startMic, stopMic, setSelfUid, setGroupMembers, setIsOwner, backendSynthComplete, setBackendSynthComplete, clearResponse, handleControlMessage, appendOrUpdateToolCallMessage, interrupt, setBrowserViewData, t, captureCamera, captureScreen]);
 
   useEffect(() => {
     wsService.connect(wsUrl);

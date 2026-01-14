@@ -80,6 +80,12 @@ export interface MessageEvent {
   histories?: HistoryInfo[];
   configs?: ConfigFile[];
   message?: string;
+  request_id?: string;
+  source?: 'camera' | 'screen';
+  question?: string;
+  display?: string;
+  image?: string;
+  mime_type?: string;
   members?: string[];
   is_owner?: boolean;
   client_uid?: string;
@@ -118,6 +124,16 @@ class WebSocketService {
 
   private ws: WebSocket | null = null;
 
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private reconnectDelay = 1000;
+
+  private readonly reconnectMaxDelay = 30000;
+
+  private reconnectEnabled = true;
+
+  private manualDisconnect = false;
+
   private messageSubject = new Subject<MessageEvent>();
 
   private stateSubject = new Subject<'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED'>();
@@ -153,11 +169,14 @@ class WebSocketService {
     }
 
     try {
+      this.manualDisconnect = false;
       this.ws = new WebSocket(url);
       this.currentState = 'CONNECTING';
       this.stateSubject.next('CONNECTING');
 
       this.ws.onopen = () => {
+        this.clearReconnectTimer();
+        this.reconnectDelay = 1000;
         this.currentState = 'OPEN';
         this.stateSubject.next('OPEN');
         this.initializeConnection();
@@ -180,16 +199,48 @@ class WebSocketService {
       this.ws.onclose = () => {
         this.currentState = 'CLOSED';
         this.stateSubject.next('CLOSED');
+        this.scheduleReconnect(url);
       };
 
       this.ws.onerror = () => {
         this.currentState = 'CLOSED';
         this.stateSubject.next('CLOSED');
+        this.scheduleReconnect(url);
       };
     } catch (error) {
       console.error('Failed to connect to WebSocket:', error);
       this.currentState = 'CLOSED';
       this.stateSubject.next('CLOSED');
+      this.scheduleReconnect(url);
+    }
+  }
+
+  private scheduleReconnect(url: string) {
+    if (!this.reconnectEnabled || this.manualDisconnect) {
+      return;
+    }
+    if (this.reconnectTimer) {
+      return;
+    }
+    const delay = this.reconnectDelay;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect(url);
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.reconnectMaxDelay);
+    }, delay);
+  }
+
+  private clearReconnectTimer() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  setReconnectEnabled(enabled: boolean) {
+    this.reconnectEnabled = enabled;
+    if (!enabled) {
+      this.clearReconnectTimer();
     }
   }
 
@@ -215,6 +266,8 @@ class WebSocketService {
   }
 
   disconnect() {
+    this.manualDisconnect = true;
+    this.clearReconnectTimer();
     this.ws?.close();
     this.ws = null;
   }

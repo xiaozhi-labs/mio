@@ -96,6 +96,7 @@ class WebSocketHandler:
             "audio-play-start": self._handle_audio_play_start,
             "request-init-config": self._handle_init_config_request,
             "heartbeat": self._handle_heartbeat,
+            "mcp-capture-response": self._handle_mcp_capture_response,
         }
 
     async def handle_new_connection(
@@ -666,3 +667,9 @@ class WebSocketHandler:
             await websocket.send_json({"type": "heartbeat-ack"})
         except Exception as e:
             logger.error(f"Error sending heartbeat acknowledgment: {e}")
+
+    async def _handle_mcp_capture_response(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """No-op handler for MCP capture responses (handled by message_handler)."""
+        return

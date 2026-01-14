@@ -2,3 +2,6 @@ For full documentation, please visit our [documentation site](https://open-llm-v
 
 > **Note:**  
 > The `sample_conf` directory contains legacy sample configuration files for running various models with sherpa-onnx. These files are deprecated and will be removed after we extract the relevant sherpa-onnx information.
+
+Additional local docs:
+- `mio-mcp.md`: MCP capture tools for XiaoZhi gateway.

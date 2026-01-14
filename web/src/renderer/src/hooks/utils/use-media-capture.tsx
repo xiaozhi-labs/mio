@@ -98,39 +98,46 @@ export function useMediaCapture() {
     }
   }, [t, getCompressionQuality, getImageMaxWidth]);
 
+  const captureSource = useCallback(async (source: 'camera' | 'screen') => {
+    const stream = source === 'camera' ? cameraStream : screenStream;
+    const frame = await captureFrame(stream, source);
+    if (!frame) {
+      return null;
+    }
+    return {
+      source,
+      data: frame,
+      mime_type: 'image/jpeg',
+    } as ImageData;
+  }, [cameraStream, screenStream, captureFrame]);
+
   const captureAllMedia = useCallback(async () => {
     const images: ImageData[] = [];
 
     // Capture camera frame
     if (cameraStream) {
-      const cameraFrame = await captureFrame(cameraStream, 'camera');
-      if (cameraFrame) {
-        images.push({
-          source: 'camera',
-          data: cameraFrame,
-          mime_type: 'image/jpeg',
-        });
+      const cameraResult = await captureSource('camera');
+      if (cameraResult) {
+        images.push(cameraResult);
       }
     }
 
     // Capture screen frame
     if (screenStream) {
-      const screenFrame = await captureFrame(screenStream, 'screen');
-      if (screenFrame) {
-        images.push({
-          source: 'screen',
-          data: screenFrame,
-          mime_type: 'image/jpeg',
-        });
+      const screenResult = await captureSource('screen');
+      if (screenResult) {
+        images.push(screenResult);
       }
     }
 
     console.log("images: ", images);
 
     return images;
-  }, [cameraStream, screenStream, captureFrame]);
+  }, [cameraStream, screenStream, captureSource]);
 
   return {
     captureAllMedia,
+    captureCamera: () => captureSource('camera'),
+    captureScreen: () => captureSource('screen'),
   };
 }

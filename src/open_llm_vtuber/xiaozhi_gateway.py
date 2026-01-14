@@ -2,6 +2,7 @@ import asyncio
 import base64
 import io
 import json
+import uuid
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 
@@ -14,6 +15,7 @@ from opuslib.api import decoder as opus_decoder_api
 
 from .agent.output_types import DisplayText
 from .message_handler import message_handler
+from .xiaozhi_mcp_server import XiaoZhiMcpServer
 
 TTS_STREAM_CHUNK_MS = 300
 TTS_FADE_MS = 10
@@ -56,6 +58,8 @@ class XiaozhiGateway:
         self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
         self._recv_task: Optional[asyncio.Task] = None
         self._send_lock = asyncio.Lock()
+        self._connect_lock = asyncio.Lock()
+        self._reconnect_task: Optional[asyncio.Task] = None
 
         self._encoder = Encoder(
             audio_params.sample_rate,
@@ -84,32 +88,59 @@ class XiaozhiGateway:
         self._tts_display_sent = False
         self._llm_text = ""
         self._closed = False
+        self._mcp_server = XiaoZhiMcpServer(
+            send_callback=self._send_mcp_payload,
+            capture_callback=self._request_capture_from_web,
+            device_id=self._device_id,
+            client_id=self._client_id,
+        )
 
     async def connect(self) -> None:
+        if self._closed:
+            return
         if self._session or self._ws:
             return
-        self._session = aiohttp.ClientSession()
-        headers = {
-            "Protocol-Version": str(self.protocol_version),
-            "Client-Id": self._client_id,
-            "Device-Id": self._device_id,
-        }
-        if self._access_token:
-            headers["Authorization"] = f"Bearer {self._access_token}"
-        self._ws = await self._session.ws_connect(self.backend_url, headers=headers)
-        await self._send_hello()
+        await self._connect_once()
         self._recv_task = asyncio.create_task(self._recv_loop())
 
     async def close(self) -> None:
         if self._closed:
             return
         self._closed = True
+        if self._reconnect_task and not self._reconnect_task.done():
+            self._reconnect_task.cancel()
         if self._recv_task and not self._recv_task.done():
             self._recv_task.cancel()
+        await self._disconnect()
+
+    async def _connect_once(self) -> None:
+        async with self._connect_lock:
+            if self._closed or self._session or self._ws:
+                return
+            self._session = aiohttp.ClientSession()
+            headers = {
+                "Protocol-Version": str(self.protocol_version),
+                "Client-Id": self._client_id,
+                "Device-Id": self._device_id,
+            }
+            if self._access_token:
+                headers["Authorization"] = f"Bearer {self._access_token}"
+            try:
+                self._ws = await self._session.ws_connect(
+                    self.backend_url, headers=headers
+                )
+            except Exception:
+                await self._disconnect()
+                raise
+            await self._send_hello()
+
+    async def _disconnect(self) -> None:
         if self._ws and not self._ws.closed:
             await self._ws.close()
         if self._session:
             await self._session.close()
+        self._ws = None
+        self._session = None
 
     async def handle_audio_data(self, audio: list[float]) -> None:
         if not audio or not self._ws:
@@ -158,7 +189,7 @@ class XiaozhiGateway:
         hello = {
             "type": "hello",
             "version": self.protocol_version,
-            "features": {"mcp": False},
+            "features": {"mcp": True},
             "transport": "websocket",
             "audio_params": {
                 "format": self.audio_params.format,
@@ -220,7 +251,28 @@ class XiaozhiGateway:
         finally:
             if not self._closed:
                 await self._notify_backend_closed()
-                await self.close()
+                await self._disconnect()
+                await self._schedule_reconnect()
+
+    async def _schedule_reconnect(self) -> None:
+        if self._closed:
+            return
+        if self._reconnect_task and not self._reconnect_task.done():
+            return
+        self._reconnect_task = asyncio.create_task(self._reconnect_loop())
+
+    async def _reconnect_loop(self) -> None:
+        delay = 1.0
+        max_delay = 30.0
+        while not self._closed:
+            try:
+                await self._connect_once()
+                self._recv_task = asyncio.create_task(self._recv_loop())
+                return
+            except Exception as exc:
+                logger.warning(f"xiaozhi gateway reconnect failed: {exc}")
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, max_delay)
 
     async def _handle_text_message(self, data: str) -> None:
         try:
@@ -231,6 +283,19 @@ class XiaozhiGateway:
 
         msg_type = payload.get("type")
         if msg_type == "hello":
+            return
+        if msg_type == "mcp":
+            mcp_payload = payload.get("payload")
+            if mcp_payload is None:
+                logger.warning("xiaozhi gateway received MCP message without payload")
+                return
+            if isinstance(mcp_payload, str):
+                try:
+                    mcp_payload = json.loads(mcp_payload)
+                except json.JSONDecodeError:
+                    logger.warning("xiaozhi gateway received invalid MCP payload")
+                    return
+            await self._mcp_server.parse_message(mcp_payload)
             return
         if msg_type == "stt":
             text = payload.get("text", "")
@@ -258,6 +323,63 @@ class XiaozhiGateway:
         if msg_type == "goodbye":
             await self.close()
             return
+
+    async def _send_mcp_payload(self, payload: dict) -> None:
+        await self._send_json({"type": "mcp", "payload": payload})
+
+    async def _request_capture_from_web(
+        self, source: str, question: str, display: Optional[str]
+    ) -> dict:
+        if not self._send_text:
+            return {"success": False, "message": "websocket send is not available"}
+        request_id = str(uuid.uuid4())
+        request = {
+            "type": "mcp-capture-request",
+            "request_id": request_id,
+            "source": source,
+            "question": question,
+            "display": display or "",
+        }
+        await self._send_text(json.dumps(request))
+        response = await message_handler.wait_for_response(
+            self._client_uid, "mcp-capture-response", request_id=request_id, timeout=30
+        )
+        if not response:
+            return {"success": False, "message": "capture timeout"}
+        if not response.get("success"):
+            return {
+                "success": False,
+                "message": response.get("message", "capture failed"),
+            }
+
+        image_data = response.get("image", "")
+        mime_type = response.get("mime_type", "image/jpeg")
+        image_bytes = self._decode_capture_image(image_data)
+        if not image_bytes:
+            return {"success": False, "message": "empty capture image"}
+        return {
+            "success": True,
+            "image_bytes": image_bytes,
+            "mime_type": mime_type,
+        }
+
+    @staticmethod
+    def _decode_capture_image(image_data: str) -> Optional[bytes]:
+        if not image_data or not isinstance(image_data, str):
+            return None
+        if image_data.startswith("data:"):
+            try:
+                _, encoded = image_data.split(",", 1)
+            except ValueError:
+                return None
+            try:
+                return base64.b64decode(encoded)
+            except (ValueError, TypeError):
+                return None
+        try:
+            return base64.b64decode(image_data)
+        except (ValueError, TypeError):
+            return None
 
     async def _handle_tts_state(self, state: str | None, text: str | None) -> None:
         if state == "sentence_start" and text:
