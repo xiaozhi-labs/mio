@@ -92,11 +92,11 @@ const DEFAULT_VAD_SETTINGS: VADSettings = {
 };
 
 const DEFAULT_VAD_STATE = {
-  micOn: false,
-  autoStopMic: false,
-  autoStartMicOn: false,
-  autoStartMicOnConvEnd: false,
-  voiceInterruptEnabled: false,
+	micOn: false,
+	autoStopMic: false,
+	autoStartMicOn: false,
+	autoStartMicOnConvEnd: true,
+	voiceInterruptEnabled: false,
 };
 
 /**
@@ -186,15 +186,15 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     autoStopMicRef.current = autoStopMic;
-  }, []);
+  }, [autoStopMic]);
 
   useEffect(() => {
     autoStartMicRef.current = autoStartMicOn;
-  }, []);
+  }, [autoStartMicOn]);
 
   useEffect(() => {
     autoStartMicOnConvEndRef.current = autoStartMicOnConvEnd;
-  }, []);
+  }, [autoStartMicOnConvEnd]);
 
   useEffect(() => {
     voiceInterruptEnabledRef.current = voiceInterruptEnabled;

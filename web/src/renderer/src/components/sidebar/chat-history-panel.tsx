@@ -5,7 +5,7 @@
 /* eslint-disable import/order */
 /* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable react/require-default-props */
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box, Spinner, Flex, Text, Icon } from '@chakra-ui/react';
 import { sidebarStyles, chatPanelStyles } from './sidebar-styles';
 import { MainContainer, ChatContainer, MessageList as ChatMessageList, Message as ChatMessage, Avatar as ChatAvatar } from '@chatscope/chat-ui-kit-react';
@@ -24,6 +24,7 @@ function ChatHistoryPanel(): JSX.Element {
   const { confName } = useConfig();
   const { baseUrl } = useWebSocket();
   const userName = "Me";
+  const messageListRef = useRef<any>(null);
   const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
 
   const buildMarkdownNodes = (content: string) => {
@@ -89,6 +90,10 @@ function ChatHistoryPanel(): JSX.Element {
      (msg.type === 'tool_call_status' && msg.status === 'error'), // Keep error tools
   );
 
+  useEffect(() => {
+    messageListRef.current?.scrollToBottom?.();
+  }, [validMessages.length]);
+
   return (
     <Box
       h="full"
@@ -98,7 +103,7 @@ function ChatHistoryPanel(): JSX.Element {
       <Global styles={chatPanelStyles} />
       <MainContainer>
         <ChatContainer>
-          <ChatMessageList>
+          <ChatMessageList ref={messageListRef}>
             {validMessages.length === 0 ? (
               <Box
                 display="flex"
@@ -114,41 +119,61 @@ function ChatHistoryPanel(): JSX.Element {
               validMessages.map((msg) => {
                 // Check if it's a tool call message
                 if (msg.type === 'tool_call_status') {
+                  const toolContent = msg.content || '';
+                  const toolContentNodes = toolContent
+                    ? buildMarkdownNodes(toolContent).nodes
+                    : [];
                   return (
                     // Render Tool Call Indicator using msg properties
                     <Flex
                       key={msg.id} // Use tool_id as key
+                      direction="column"
+                      gap={2}
                       {...sidebarStyles.toolCallIndicator.container}
-                      alignItems="center"
                     >
-                      <Icon
-                        as={FaTools}
-                        {...sidebarStyles.toolCallIndicator.icon}
-                      />
-                      <Text {...sidebarStyles.toolCallIndicator.text}>
-                        {/* {msg.tool_name}: {msg.status === 'running' ? 'Running...' : msg.content} */}
-                        {msg.status === "running" ? `${msg.name} is using tool ${msg.tool_name}` : `${msg.name} used tool ${msg.tool_name}`}
-                      </Text>
-                      {/* Show spinner if running, checkmark if completed, maybe error icon? */}
-                      {msg.status === "running" && (
-                        <Spinner
-                          size="xs"
-                          color={sidebarStyles.toolCallIndicator.spinner.color}
-                          ml={sidebarStyles.toolCallIndicator.spinner.ml}
-                        />
-                      )}
-                      {msg.status === "completed" && (
+                      <Flex alignItems="center">
                         <Icon
-                          as={FaCheck}
-                          {...sidebarStyles.toolCallIndicator.completedIcon}
+                          as={FaTools}
+                          {...sidebarStyles.toolCallIndicator.icon}
                         />
-                      )}
-                      {/* Optional: Add an error icon */}
-                      {msg.status === "error" && (
-                        <Icon
-                          as={FaTimes}
-                          {...sidebarStyles.toolCallIndicator.errorIcon}
-                        />
+                        <Text {...sidebarStyles.toolCallIndicator.text}>
+                          {/* {msg.tool_name}: {msg.status === 'running' ? 'Running...' : msg.content} */}
+                          {msg.status === "running" ? `${msg.name} is using tool ${msg.tool_name}` : `${msg.name} used tool ${msg.tool_name}`}
+                        </Text>
+                        {/* Show spinner if running, checkmark if completed, maybe error icon? */}
+                        {msg.status === "running" && (
+                          <Spinner
+                            size="xs"
+                            color={sidebarStyles.toolCallIndicator.spinner.color}
+                            ml={sidebarStyles.toolCallIndicator.spinner.ml}
+                          />
+                        )}
+                        {msg.status === "completed" && (
+                          <Icon
+                            as={FaCheck}
+                            {...sidebarStyles.toolCallIndicator.completedIcon}
+                          />
+                        )}
+                        {/* Optional: Add an error icon */}
+                        {msg.status === "error" && (
+                          <Icon
+                            as={FaTimes}
+                            {...sidebarStyles.toolCallIndicator.errorIcon}
+                          />
+                        )}
+                      </Flex>
+                      {toolContentNodes.length > 0 && (
+                        <Box
+                          bg="rgba(255, 255, 255, 0.06)"
+                          border="1px solid var(--app-border)"
+                          borderRadius="md"
+                          px={3}
+                          py={2}
+                        >
+                          <Box display="flex" flexDirection="column" gap="8px">
+                            {toolContentNodes}
+                          </Box>
+                        </Box>
                       )}
                     </Flex>
                   );

@@ -110,9 +110,9 @@ export function SelectField({
         <SelectTrigger {...settingStyles.general.select.trigger}>
           <SelectValueText placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent {...settingStyles.general.select.content}>
           {collection.items.map((item) => (
-            <SelectItem key={item.value} item={item}>
+            <SelectItem key={item.value} item={item} {...settingStyles.general.select.item}>
               {item.label}
             </SelectItem>
           ))}

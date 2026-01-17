@@ -34,6 +34,11 @@ system_config:
     # Additional guidance for LLM on how to use tools
     # tool_guidance_prompt: 'tool_guidance_prompt' 
 
+tls_disable: false
+tls_required: false
+tls_cert_path: 'certs/server.crt'
+tls_key_path: 'certs/server.key'
+
 # configuration for the default character
 character_config:
   conf_name: 'mao_pro' # The name of character configuration file.

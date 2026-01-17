@@ -1,58 +1,60 @@
-# Go 后端替代 Python 的整体技术方案与实现注意事项
+# Go 后端替代 Python 的整体技术方案与实现注意事项（对接 XiaoZhi 统一模型服务）
 
 ## 目标
-将当前 Python 后端（FastAPI + 业务逻辑）替换为 Go 实现，保持现有前端与协议行为一致，最小化功能与接口变更。
+将当前 Python 后端（FastAPI + 业务逻辑）替换为 Go 实现，保持现有前端与协议行为一致，最小化功能与接口变更。ASR/LLM/TTS 由 XiaoZhi 统一服务提供，不再自建模型服务。
 
 ## 当前后端职责概览（现状）
 - WebSocket 服务：`/client-ws`，处理前端消息类型与路由
 - 静态资源托管：`/frontend`、`/live2d-models`、`/backgrounds` 等
 - 会话/群组管理：用户连接、群组管理、广播
-- 对话编排：ASR -> LLM -> TTS -> 前端播放控制
+- 对话编排：XiaoZhi -> 前端播放控制（ASR/LLM/TTS 由 XiaoZhi 提供）
 - 工具调用与浏览器工具：MCP 相关事件/状态
 - Web 工具页面：`/web-tool` 静态站点
 
 核心实现入口：`src/open_llm_vtuber/server.py`、`src/open_llm_vtuber/websocket_handler.py`、`src/open_llm_vtuber/conversations/*`
+XiaoZhi 对接参考：`src/open_llm_vtuber/xiaozhi_gateway.py`、`src/open_llm_vtuber/websocket_handler.py`、`src/open_llm_vtuber/xiaozhi_mcp_server.py`
 
 ## 迁移总体策略
 **分层迁移**（建议）
 1) 先保持协议/消息结构不变（前端零改动）
 2) Go 实现 WebSocket 与静态资源服务
-3) 逐步移植会话编排与 TTS/ASR/LLM 调度
-4) 替换或桥接 Python 模块（兼容期可走旁路）
+3) 迁移会话编排、历史/配置/群组管理
+4) 将 ASR/LLM/TTS 调用替换为 XiaoZhi 统一服务（不再自建模型服务）
 
-**方案 A：纯 Go 全量替换**
-- 优点：性能、部署单一、可控
-- 风险：功能迁移成本高、模型生态对接复杂
+**方案 A：纯 Go 全量替换 + XiaoZhi 模型服务**
+- Go 负责协议网关、会话编排、资源托管与业务逻辑
+- ASR/LLM/TTS 通过 XiaoZhi 统一 WebSocket 接口
+- 风险：需要完整迁移后端逻辑与状态管理，但模型服务风险已降低
 
-**方案 B：Go 作为网关/编排层**
+**方案 B：Go 作为网关/编排层 + 保留 Python 业务组件（非模型）**
 - Go 管理连接、协议、缓存、队列
-- 语音/LLM 仍由 Python 服务处理（HTTP/gRPC）
-- 风险低、可渐进
+- Python 仅保留历史/配置/工具等业务组件，模型调用完全走 XiaoZhi
+- 风险低、可渐进，适合作为过渡
 
-> 若需快速落地，推荐方案 B，再逐步迁移。
+> 若需快速落地，推荐方案 B；确认业务逻辑稳定后逐步收敛到方案 A。
 
 ## 架构设计（Go 方案）
 
 ### 1) 进程与模块划分
-- `cmd/server`: 入口
-- `internal/ws`: WebSocket 连接与消息路由
-- `internal/http`: 静态文件与 REST
-- `internal/conversation`: 会话编排
-- `internal/tts`, `internal/asr`, `internal/llm`: 引擎接口与实现
-- `internal/group`: 群组管理与广播
-- `internal/config`: 配置读取与热更新
-- `internal/types`: 协议与消息类型
+- `mio-server/cmd/server`: 入口
+- `mio-server/internal/ws`: WebSocket 连接与消息路由
+- `mio-server/internal/http`: 静态文件与 REST
+- `mio-server/internal/conversation`: 会话编排
+- `mio-server/internal/xiaozhi`: XiaoZhi 客户端与协议适配
+- `mio-server/internal/group`: 群组管理与广播
+- `mio-server/internal/config`: 配置读取与热更新
+- `mio-server/internal/types`: 协议与消息类型
 
 ### 2) 核心数据流
 ```
 Frontend WS -> Go WS Router -> Conversation Orchestrator
-  -> ASR -> LLM -> TTS -> Audio Payload -> WS to Frontend
+  -> XiaoZhi Gateway -> Audio/Full-text/Control -> WS to Frontend
 ```
 
 ### 3) 并发模型建议
 - 每个连接一个 goroutine + 读写协程
 - 会话编排基于 context + channel
-- TTS/ASR/LLM 通过 worker pool 控制并发
+- XiaoZhi 流式处理通过 worker pool 控制并发
 - 广播使用非阻塞发送 + 超时回收
 
 ## 关键协议与消息类型（必须保持一致）
@@ -96,11 +98,13 @@ Frontend WS -> Go WS Router -> Conversation Orchestrator
   - audio 编码为 wav/base64
   - 生成 volume 数组用于 lip sync
   - `slice_length` 默认为 20ms
+  - XiaoZhi 输出音频帧需统一到本地协议格式（采样率/声道/封装）
 
 ### 3) 对话编排与状态一致
 - 前端依赖 `conversation-chain-start/end` 控制 UI 状态
 - `backend-synth-complete` 需在 TTS 全部推送完成后发送
 - `force-new-message` 用于拆分消息块
+ - XiaoZhi 流式文本需驱动 `full-text` 更新（XiaoZhi 模式下前端使用 upsert）
 
 ### 4) Live2D 表情/动作
 - `actions.expressions` 与 `actions.pictures/sounds` 需透传
@@ -118,36 +122,79 @@ Frontend WS -> Go WS Router -> Conversation Orchestrator
   - `/frontend` -> `frontend/`
   - `/web-tool` -> `web_tool/`
 
-### 7) 与 Python 组件桥接（方案 B）
-- 建议 gRPC 或 HTTP：
-  - `/asr`：传音频流，返回文本
-  - `/llm`：传对话上下文，流式返回
-  - `/tts`：传文本，返回音频流/文件
-- Go 统一处理 WebSocket + 状态，Python 作为纯模型服务
+### 7) XiaoZhi 接口契约与错误处理
+- 连接参数来自 `conf.yaml`：`xiaozhi_backend_url`、`xiaozhi_protocol_version`、`xiaozhi_audio_format`、`xiaozhi_sample_rate`、`xiaozhi_channels`、`xiaozhi_frame_duration`
+- 鉴权与标识头：`Device-Id`、`Client-Id`、`Authorization`
+- 需明确超时、重试、断线重连策略，避免重复播放或状态错乱
+- 错误码/错误消息需映射为前端可识别的 `error` 消息
 
-### 8) 多端兼容
+### 8) 与 Python 组件桥接（方案 B）
+Python 不再承载模型服务，仅保留业务组件时的桥接接口需明确：
+- 历史/配置/工具调用 API 的路径、请求/响应、错误码
+- 统一鉴权（例如共享 token 或内网访问控制）
+
+### 9) 多端兼容
 - Electron 与 Web 版本共享协议
 - 需保持 CORS 与 HTTPS 约束
 
+### 10) 协议映射与消息序列（XiaoZhi -> UI）
+- 映射目标以 `doc/web-ui.md` 为准，保持 `type` 与字段名一致
+- 关键序列建议基准化（示例）：
+  - `text-input` -> `control:conversation-chain-start` -> `full-text`(流式更新) -> `audio`(分片) -> `backend-synth-complete` -> `control:conversation-chain-end`
+- XiaoZhi 音频分片需补齐 `volumes` 与 `slice_length`，保证 lip sync 与播放节奏一致
+- XiaoZhi 若返回独立的“结束”事件，需映射为 `backend-synth-complete`
+
+### 11) UI 协议消息清单（前端实际使用）
+> 参考 `doc/web-ui.md`，需保持兼容
+- Server -> Client：`control`、`full-text`、`audio`、`history-data`、`history-list`、`config-files`、`config-switched`、`background-files`、`tool_call_status`、`backend-synth-complete`、`force-new-message`、`interrupt-signal`、`mcp-capture-request` 等
+- Client -> Server：`text-input`、`mic-audio-data`、`mic-audio-end`、`interrupt-signal`、`fetch-configs`、`switch-config`、`fetch-history-list`、`fetch-and-set-history`、`create-new-history`、`delete-history`、`fetch-backgrounds`、`add-client-to-group`、`remove-client-from-group`、`request-group-info`、`mcp-capture-response` 等
+
+### 12) XiaoZhi 事件到 UI 消息映射（当前 Python 对接参考）
+- `stt` -> `user-input-transcription`
+- `llm` / `text` -> `full-text`（流式累计）
+- `tts: start` -> 启动音频流状态
+- `tts: sentence_start` -> `full-text` 追加
+- `tts: stop` + 二进制音频帧 -> `audio` + `backend-synth-complete` + `force-new-message`
+- `goodbye` / 断线 -> `error` + `control:conversation-chain-end`
+- XiaoZhi `mcp` -> `tool_call_status` / `mcp-capture-request`（视 MCP 事件）
+- Client `interrupt-signal` -> XiaoZhi `abort`（并终止 UI 会话）
+- Client `text-input` -> XiaoZhi `listen:detect`（文本模式）
+- Client `mic-audio-data`/`mic-audio-end` -> XiaoZhi `listen:start/stop` + 音频帧
+
+### 13) 状态机与并发控制
+- 每个客户端维护单独会话状态机，防止 interrupt 与 audio 并发造成 UI 卡死
+- 强制 `conversation-chain-start/end` 成对出现，异常中断也需发送 `conversation-chain-end`
+- 连接断开时清理网关状态与待发送队列，避免重连后串话
+
+### 14) 可观测性与诊断
+- 建议日志字段：`client_uid`、`history_uid`、`request_id`、`xiaozhi_session_id`
+- 关键指标：WS 连接数、XiaoZhi RTT、音频队列长度、重连次数、错误码分布
+
+### 15) 安全与鉴权
+- XiaoZhi 鉴权信息来自 `conf.yaml`，避免前端直连暴露 token
+- Go 网关与 XiaoZhi 通信需限制外部网络访问范围
+
 ## 推荐技术栈（Go）
-- WebSocket: `github.com/gorilla/websocket` 或 `nhooyr.io/websocket`
-- HTTP: `net/http` + `chi`/`gin`
+- WebSocket: `github.com/gorilla/websocket`
+- HTTP: `gin`
 - 配置: `viper`
 - 日志: `zap`/`zerolog`
 - 音频处理: `github.com/go-audio/wav`, `github.com/go-audio/audio`
+- XiaoZhi 客户端：建议封装为独立包，支持自动重连与心跳
 
 ## 迁移实施步骤（建议）
 1) **实现 Go WebSocket 路由与协议透传**（不做业务）
 2) **迁移静态资源托管与配置读取**
-3) **实现简化会话编排**：先支持 `text-input -> tts -> audio`
-4) **加入 ASR 与 LLM**（或桥接 Python）
-5) **补齐群组管理与工具调用**
+3) **实现 XiaoZhi 网关**：连接管理、鉴权、音频与文本流对接
+4) **实现会话编排**：`text-input -> XiaoZhi -> audio/full-text`
+5) **补齐群组管理、历史/配置、工具调用**
 6) **回归验证与性能压测**
 
 ## 风险与验证点
 - 音频切片 RMS 算法偏差导致 lip sync 不自然
 - 对话状态同步不一致导致 UI 卡死
 - 消息字段遗漏导致前端报错或静默失败
+- XiaoZhi 断线/重连导致消息乱序或状态不一致
 
 ## 验收清单
 - 能连通前端（Web/Electron）
@@ -155,6 +202,14 @@ Frontend WS -> Go WS Router -> Conversation Orchestrator
 - Live2D 表情能随语音变化
 - 历史记录与配置切换正常
 - 中断、重连、群组广播正常
+- XiaoZhi 断线重连后状态恢复且消息顺序正确
+
+## 验收与回归建议（最小集合）
+1) 启动 Go 网关，Web UI 连通
+2) `text-input` 发起对话，确认 `control/full-text/audio/backend-synth-complete` 顺序正确
+3) 中断并立即重启对话，确认状态机可重入
+4) 切换配置与历史记录，确认 UI 同步更新
+5) 触发 MCP 工具调用与回传，确认状态与显示一致
 
 ---
 
@@ -271,20 +326,20 @@ Frontend WS -> Go WS Router -> Conversation Orchestrator
 
 ## 追加：Go 端目录结构模板
 ```
-cmd/server/main.go
-internal/http/router.go
-internal/ws/hub.go
-internal/ws/handler.go
-internal/ws/types.go
-internal/conversation/orchestrator.go
-internal/conversation/state.go
-internal/tts/tts.go
-internal/asr/asr.go
-internal/llm/llm.go
-internal/group/group.go
-internal/config/config.go
-internal/storage/history.go
-internal/media/audio.go
+mio-server/cmd/main.go
+mio-server/internal/http/router.go
+mio-server/internal/ws/hub.go
+mio-server/internal/ws/handler.go
+mio-server/internal/ws/types.go
+mio-server/internal/conversation/orchestrator.go
+mio-server/internal/conversation/state.go
+mio-server/internal/xiaozhi/client.go
+mio-server/internal/xiaozhi/types.go
+mio-server/internal/group/group.go
+mio-server/internal/config/config.go
+mio-server/internal/storage/history.go
+mio-server/internal/media/audio.go
+mio-server/internal/observability/metrics.go
 ```
 
 ---
@@ -320,4 +375,3 @@ internal/media/audio.go
 3) 切换角色与背景文件\n
 4) 打断与恢复\n
 5) 群组邀请与广播\n
-

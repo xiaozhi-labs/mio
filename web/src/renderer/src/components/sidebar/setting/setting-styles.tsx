@@ -117,6 +117,23 @@ export const settingStyles = {
       trigger: {
         bg: 'rgba(255, 255, 255, 0.06)',
       },
+      content: {
+        bg: 'var(--app-panel-strong)',
+        color: 'var(--app-text)',
+        borderColor: 'var(--app-border)',
+      },
+      item: {
+        color: 'var(--app-text)',
+        _hover: {
+          bg: 'rgba(255, 255, 255, 0.08)',
+        },
+        _highlighted: {
+          bg: 'rgba(255, 255, 255, 0.12)',
+        },
+        _selected: {
+          bg: 'rgba(255, 255, 255, 0.16)',
+        },
+      },
     },
     input: {
       bg: 'rgba(255, 255, 255, 0.06)',

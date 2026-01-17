@@ -36,6 +36,11 @@ system_config:
     # 额外指导 LLM 如何使用工具的提示词
     # tool_guidance_prompt: 'tool_guidance_prompt' 
 
+tls_disable: false # 是否禁用 TLS（true 则强制使用 http）
+tls_required: false # TLS 必须启用（证书缺失时自动使用内存证书）
+tls_cert_path: 'certs/server.crt' # TLS 证书路径
+tls_key_path: 'certs/server.key' # TLS 私钥路径
+
 # 默认角色的配置
 character_config:
   conf_name: 'mao_pro' # 角色配置文件的名称
