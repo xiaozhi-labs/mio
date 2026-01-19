@@ -1,7 +1,13 @@
 /* eslint-disable react/require-default-props */
 import { Box, Button, Menu } from '@chakra-ui/react';
 import {
-  FiSettings, FiClock, FiPlus, FiChevronLeft, FiUsers, FiLayers, FiMaximize
+  FiSettings,
+  FiClock,
+  FiPlus,
+  FiChevronLeft,
+  FiUsers,
+  FiLayers,
+  FiMaximize,
 } from 'react-icons/fi';
 import { memo } from 'react';
 import { sidebarStyles } from './sidebar-styles';
@@ -184,7 +190,11 @@ const SidebarContent = memo(({
 SidebarContent.displayName = 'SidebarContent';
 
 // Main component
-function Sidebar({ isCollapsed = false, onToggle, onToggleFullscreen }: SidebarProps): JSX.Element {
+function Sidebar({
+  isCollapsed = false,
+  onToggle,
+  onToggleFullscreen,
+}: SidebarProps): JSX.Element {
   const {
     settingsOpen,
     onSettingsOpen,
