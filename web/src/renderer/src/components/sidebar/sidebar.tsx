@@ -1,7 +1,7 @@
 /* eslint-disable react/require-default-props */
 import { Box, Button, Menu } from '@chakra-ui/react';
 import {
-  FiSettings, FiClock, FiPlus, FiChevronLeft, FiUsers, FiLayers
+  FiSettings, FiClock, FiPlus, FiChevronLeft, FiUsers, FiLayers, FiMaximize
 } from 'react-icons/fi';
 import { memo } from 'react';
 import { sidebarStyles } from './sidebar-styles';
@@ -18,6 +18,7 @@ import { ColorModeButton } from '@/components/ui/color-mode';
 interface SidebarProps {
   isCollapsed?: boolean
   onToggle: () => void
+  onToggleFullscreen: () => void
 }
 
 interface HeaderButtonsProps {
@@ -26,6 +27,7 @@ interface HeaderButtonsProps {
   setMode: (mode: ModeType) => void
   currentMode: 'window' | 'pet'
   isElectron: boolean
+  onToggleFullscreen: () => void
 }
 
 // Reusable components
@@ -88,7 +90,14 @@ const ModeMenu = memo(({ setMode, currentMode, isElectron }: {
 
 ModeMenu.displayName = 'ModeMenu';
 
-const HeaderButtons = memo(({ onSettingsOpen, onNewHistory, setMode, currentMode, isElectron }: HeaderButtonsProps) => (
+const HeaderButtons = memo(({
+  onSettingsOpen,
+  onNewHistory,
+  setMode,
+  currentMode,
+  isElectron,
+  onToggleFullscreen,
+}: HeaderButtonsProps) => (
   <Box display="flex" gap={1}>
     <Button
       onClick={onSettingsOpen}
@@ -134,6 +143,15 @@ const HeaderButtons = memo(({ onSettingsOpen, onNewHistory, setMode, currentMode
       title="Day/Night"
       {...sidebarStyles.sidebar.headerButton}
     />
+
+    <Button
+      onClick={onToggleFullscreen}
+      aria-label="Fullscreen canvas"
+      title="Fullscreen"
+      {...sidebarStyles.sidebar.headerButton}
+    >
+      <FiMaximize />
+    </Button>
   </Box>
 ));
 
@@ -144,7 +162,8 @@ const SidebarContent = memo(({
   onNewHistory, 
   setMode, 
   currentMode,
-  isElectron
+  isElectron,
+  onToggleFullscreen,
 }: HeaderButtonsProps) => (
   <Box {...sidebarStyles.sidebar.content}>
     <Box {...sidebarStyles.sidebar.header}>
@@ -154,6 +173,7 @@ const SidebarContent = memo(({
         setMode={setMode}
         currentMode={currentMode}
         isElectron={isElectron}
+        onToggleFullscreen={onToggleFullscreen}
       />
     </Box>
     <ChatHistoryPanel />
@@ -164,7 +184,7 @@ const SidebarContent = memo(({
 SidebarContent.displayName = 'SidebarContent';
 
 // Main component
-function Sidebar({ isCollapsed = false, onToggle }: SidebarProps): JSX.Element {
+function Sidebar({ isCollapsed = false, onToggle, onToggleFullscreen }: SidebarProps): JSX.Element {
   const {
     settingsOpen,
     onSettingsOpen,
@@ -186,6 +206,7 @@ function Sidebar({ isCollapsed = false, onToggle }: SidebarProps): JSX.Element {
           setMode={setMode}
           currentMode={currentMode}
           isElectron={isElectron}
+          onToggleFullscreen={onToggleFullscreen}
         />
       )}
 

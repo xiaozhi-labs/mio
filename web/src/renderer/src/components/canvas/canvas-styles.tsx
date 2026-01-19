@@ -46,15 +46,13 @@ export const canvasStyles = {
   },
   subtitle: {
     container: {
-      backgroundColor: 'var(--app-subtitle-bg)',
+      backgroundColor: 'transparent',
       padding: '15px 30px',
       borderRadius: '12px',
       minWidth: '60%',
       maxWidth: '95%',
       border: '1px solid',
       borderColor: 'rgba(255, 255, 255, 0.12)',
-      boxShadow: '0 16px 32px rgba(0, 0, 0, 0.35)',
-      backdropFilter: 'blur(10px)',
     },
     imageContainer: {
       position: 'absolute' as const,

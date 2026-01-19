@@ -102,21 +102,17 @@ if [[ -n "${PIDS}" ]]; then
   fi
 fi
 
-echo "Starting server on ${HOST}:${PORT} using ${CONF_FILE}"
+echo "Starting Go server on ${HOST}:${PORT} using ${CONF_FILE}"
 cd "${ROOT_DIR}"
-if [[ "${MIO_USE_GO_GATEWAY:-}" == "1" ]]; then
-  if ! command -v go >/dev/null 2>&1; then
-    echo "go not found; install Go to run the gateway." >&2
-    exit 1
-  fi
-  if [[ "${HOST}" == *:* ]]; then
-    export MIO_HTTP_ADDR="[${HOST}]:${PORT}"
-  else
-    export MIO_HTTP_ADDR="${HOST}:${PORT}"
-  fi
-  export MIO_ROOT_DIR="${ROOT_DIR}"
-  cd "${ROOT_DIR}/mio-server"
-  exec go run ./cmd
+if ! command -v go >/dev/null 2>&1; then
+  echo "go not found; install Go to run the server." >&2
+  exit 1
 fi
-
-uv run run_server.py
+if [[ "${HOST}" == *:* ]]; then
+  export MIO_HTTP_ADDR="[${HOST}]:${PORT}"
+else
+  export MIO_HTTP_ADDR="${HOST}:${PORT}"
+fi
+export MIO_ROOT_DIR="${ROOT_DIR}"
+cd "${ROOT_DIR}/mio-server"
+exec go run ./cmd

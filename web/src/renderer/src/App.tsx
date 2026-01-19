@@ -34,6 +34,7 @@ import { Provider } from "./components/ui/provider";
 function AppContent(): JSX.Element {
   const [showSidebar, setShowSidebar] = useState(true);
   const [isFooterCollapsed, setIsFooterCollapsed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { mode } = useMode();
   const isElectron = window.api !== undefined;
   const live2dContainerRef = useRef<HTMLDivElement>(null);
@@ -46,6 +47,15 @@ function AppContent(): JSX.Element {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    handleFullscreenChange();
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
     
@@ -92,6 +102,21 @@ function AppContent(): JSX.Element {
     zIndex: 15, // Higher zIndex for pet mode overlay
   };
 
+  const handleToggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      const target = live2dContainerRef.current;
+      if (target?.requestFullscreen) {
+        await target.requestFullscreen();
+      }
+    } catch (error) {
+      console.warn("Failed to toggle fullscreen:", error);
+    }
+  };
+
   return (
     <>
       <Box
@@ -103,6 +128,11 @@ function AppContent(): JSX.Element {
           : live2dPetStyle)}
       >
         <Live2D />
+        {isFullscreen && (
+          <Box position="absolute" inset="0" zIndex={20} pointerEvents="none">
+            <Subtitle bottomOffset="32px" />
+          </Box>
+        )}
       </Box>
 
       {/* Conditional Rendering of Window UI */}
@@ -118,6 +148,7 @@ function AppContent(): JSX.Element {
               <Sidebar
                 isCollapsed={!showSidebar}
                 onToggle={() => setShowSidebar(!showSidebar)}
+                onToggleFullscreen={handleToggleFullscreen}
               />
             </Box>
             <Box {...layoutStyles.mainContent}>
