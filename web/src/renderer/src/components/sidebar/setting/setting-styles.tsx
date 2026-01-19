@@ -17,7 +17,7 @@ export const settingStyles = {
           borderRadius: 'full',
         },
         '&::-webkit-scrollbar-thumb': {
-          bg: 'rgba(255, 255, 255, 0.28)',
+          bg: 'rgba(28, 29, 33, 0.28)',
           borderRadius: 'full',
         },
       },
@@ -42,19 +42,27 @@ export const settingStyles = {
       content: {},
       trigger: {
         color: 'var(--app-text-muted)',
+        px: 3,
+        py: 2,
+        borderRadius: 'md',
         _selected: {
           color: 'var(--app-text)',
+          bg: 'var(--app-panel-strong)',
         },
         _hover: {
           color: 'var(--app-text)',
+          bg: 'var(--app-panel-weak)',
         },
       },
       list: {
         display: 'flex',
         justifyContent: 'flex-start',
         width: '100%',
-        borderBottom: '1px solid',
-        borderColor: 'var(--app-border)',
+        borderBottom: 'none',
+        bg: 'var(--app-panel-weak)',
+        borderRadius: 'lg',
+        p: 1,
+        gap: 1,
         mb: 4,
         pl: 0,
       },
@@ -71,10 +79,12 @@ export const settingStyles = {
     },
     drawerContent: {
       bg: 'var(--app-panel-strong)',
+      backdropFilter: 'blur(12px) saturate(140%)',
       maxWidth: '440px',
       height: isElectron ? 'calc(100vh - 30px)' : '100vh',
       borderLeft: '1px solid',
       borderColor: 'var(--app-border)',
+      boxShadow: 'var(--app-shadow)',
     },
     drawerHeader: {
       display: 'flex',
@@ -112,10 +122,11 @@ export const settingStyles = {
     select: {
       root: {
         colorPalette: 'gray',
-        bg: 'rgba(255, 255, 255, 0.06)',
+        bg: 'var(--app-panel-weak)',
       },
       trigger: {
-        bg: 'rgba(255, 255, 255, 0.06)',
+        bg: 'var(--app-panel-weak)',
+        borderColor: 'var(--app-border)',
       },
       content: {
         bg: 'var(--app-panel-strong)',
@@ -125,18 +136,19 @@ export const settingStyles = {
       item: {
         color: 'var(--app-text)',
         _hover: {
-          bg: 'rgba(255, 255, 255, 0.08)',
+          bg: 'var(--app-panel-weak)',
         },
         _highlighted: {
-          bg: 'rgba(255, 255, 255, 0.12)',
+          bg: 'rgba(28, 29, 33, 0.08)',
         },
         _selected: {
-          bg: 'rgba(255, 255, 255, 0.16)',
+          bg: 'rgba(28, 29, 33, 0.12)',
         },
       },
     },
     input: {
-      bg: 'rgba(255, 255, 255, 0.06)',
+      bg: 'var(--app-panel-weak)',
+      borderColor: 'var(--app-border)',
     },
     buttonGroup: {
       gap: 4,
@@ -176,10 +188,10 @@ export const settingStyles = {
         inputMode: 'decimal' as const,
       },
       input: {
-        bg: 'rgba(255, 255, 255, 0.06)',
+        bg: 'var(--app-panel-weak)',
         borderColor: 'var(--app-border)',
         _hover: {
-          bg: 'rgba(255, 255, 255, 0.12)',
+          bg: 'rgba(28, 29, 33, 0.06)',
         },
       },
     },
@@ -189,10 +201,10 @@ export const settingStyles = {
       css: { '--field-label-width': '120px' },
     },
     input: {
-      bg: 'rgba(255, 255, 255, 0.06)',
+      bg: 'var(--app-panel-weak)',
       borderColor: 'var(--app-border)',
       _hover: {
-        bg: 'rgba(255, 255, 255, 0.12)',
+        bg: 'rgba(28, 29, 33, 0.06)',
       },
     },
   },

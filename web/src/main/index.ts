@@ -1,5 +1,5 @@
 /* eslint-disable no-shadow */
-import { app, ipcMain, globalShortcut, desktopCapturer } from "electron";
+import { app, ipcMain, globalShortcut, desktopCapturer, session } from "electron";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { WindowManager } from "./window-manager";
 import { MenuManager } from "./menu-manager";
@@ -78,6 +78,15 @@ app.whenReady().then(() => {
 
   windowManager = new WindowManager();
   menuManager = new MenuManager((mode) => windowManager.setWindowMode(mode));
+
+  session.defaultSession.setCertificateVerifyProc((request, callback) => {
+    const { hostname } = request;
+    if (hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1') {
+      callback(0);
+      return;
+    }
+    callback(-2);
+  });
 
   const window = windowManager.createWindow({
     titleBarOverlay: {

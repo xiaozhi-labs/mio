@@ -3,23 +3,46 @@ import React, { useContext, useCallback } from 'react';
 import { wsService } from '@/services/websocket-service';
 import { useLocalStorage } from '@/hooks/utils/use-local-storage';
 
-const fallbackBaseUrl = 'http://127.0.0.1:12393';
-const fallbackWsUrl = 'ws://127.0.0.1:12393/client-ws';
+const fallbackBaseUrl = 'https://127.0.0.1:12393';
+const fallbackWsUrl = 'wss://127.0.0.1:12393/client-ws';
 
-const getDefaultBaseUrl = () => (
-  typeof window !== 'undefined' ? window.location.origin : fallbackBaseUrl
-);
+const getDefaultBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return fallbackBaseUrl;
+  }
+  const protocol = window.location.protocol;
+  if (protocol === 'http:' || protocol === 'https:') {
+    return window.location.origin;
+  }
+  return fallbackBaseUrl;
+};
 
 const getDefaultWsUrl = () => {
   if (typeof window === 'undefined') {
     return fallbackWsUrl;
   }
-  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${protocol}://${window.location.host}/client-ws`;
+  const protocol = window.location.protocol;
+  if (protocol === 'http:' || protocol === 'https:') {
+    const wsProtocol = protocol === 'https:' ? 'wss' : 'ws';
+    return `${wsProtocol}://${window.location.host}/client-ws`;
+  }
+  return fallbackWsUrl;
 };
 
 const DEFAULT_BASE_URL = getDefaultBaseUrl();
 const DEFAULT_WS_URL = getDefaultWsUrl();
+const deriveWsUrlFromBase = (baseUrl: string): string | null => {
+  try {
+    const url = new URL(baseUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null;
+    }
+    const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${url.host}/client-ws`;
+  } catch {
+    return null;
+  }
+};
 
 export interface HistoryInfo {
   uid: string;
@@ -65,6 +88,25 @@ export const defaultBaseUrl = DEFAULT_BASE_URL;
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [wsUrl, setWsUrl] = useLocalStorage('wsUrl', DEFAULT_WS_URL);
   const [baseUrl, setBaseUrl] = useLocalStorage('baseUrl', DEFAULT_BASE_URL);
+  const normalizedBaseUrl = useCallback(() => {
+    if (!baseUrl || baseUrl.startsWith('://')) {
+      return DEFAULT_BASE_URL;
+    }
+    return baseUrl;
+  }, [baseUrl]);
+  const normalizedWsUrl = useCallback(() => {
+    if (!wsUrl || wsUrl.startsWith('ws:///')) {
+      const derived = deriveWsUrlFromBase(normalizedBaseUrl());
+      return derived || DEFAULT_WS_URL;
+    }
+    if (normalizedBaseUrl().startsWith('https://') && wsUrl.startsWith('ws://')) {
+      return wsUrl.replace(/^ws:\/\//, 'wss://');
+    }
+    if (normalizedBaseUrl().startsWith('http://') && wsUrl.startsWith('wss://')) {
+      return wsUrl.replace(/^wss:\/\//, 'ws://');
+    }
+    return wsUrl;
+  }, [wsUrl, normalizedBaseUrl]);
   const handleSetWsUrl = useCallback((url: string) => {
     setWsUrl(url);
     wsService.connect(url);
@@ -73,10 +115,10 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const value = {
     sendMessage: wsService.sendMessage.bind(wsService),
     wsState: 'CLOSED',
-    reconnect: () => wsService.connect(wsUrl),
-    wsUrl,
+    reconnect: () => wsService.connect(normalizedWsUrl()),
+    wsUrl: normalizedWsUrl(),
     setWsUrl: handleSetWsUrl,
-    baseUrl,
+    baseUrl: normalizedBaseUrl(),
     setBaseUrl,
   };
 

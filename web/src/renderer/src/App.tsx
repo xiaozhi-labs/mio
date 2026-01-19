@@ -1,6 +1,6 @@
 /* eslint-disable no-shadow */
 // import { StrictMode } from 'react';
-import { Box, Flex, ChakraProvider, defaultSystem } from "@chakra-ui/react";
+import { Box, Flex } from "@chakra-ui/react";
 import { useState, useEffect, useRef } from "react";
 // import Canvas from './components/canvas/canvas'; // Likely unused now
 import Sidebar from "./components/sidebar/sidebar";
@@ -29,6 +29,7 @@ import Background from "./components/canvas/background";
 import WebSocketStatus from "./components/canvas/ws-status";
 import Subtitle from "./components/canvas/subtitle";
 import { ModeProvider, useMode } from "./context/mode-context";
+import { Provider } from "./components/ui/provider";
 
 function AppContent(): JSX.Element {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -150,12 +151,12 @@ function AppContent(): JSX.Element {
 
 function App(): JSX.Element {
   return (
-    <ChakraProvider value={defaultSystem}>
+    <Provider defaultTheme="light" enableSystem={false}>
       {/* ModeProvider needs to wrap AppContent to provide mode to getGlobalStyles */}
       <ModeProvider>
         <AppWithGlobalStyles />
       </ModeProvider>
-    </ChakraProvider>
+    </Provider>
   );
 }
 

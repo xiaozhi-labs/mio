@@ -12,7 +12,7 @@ const commonStyles = {
       borderRadius: 'full',
     },
     '&::-webkit-scrollbar-thumb': {
-      bg: 'rgba(255, 255, 255, 0.28)',
+      bg: 'rgba(28, 29, 33, 0.28)',
       borderRadius: 'full',
     },
   },
@@ -22,14 +22,15 @@ const commonStyles = {
     borderRadius: 'lg',
     bg: 'var(--app-panel)',
     boxShadow: 'var(--app-shadow)',
-    backdropFilter: 'blur(14px)',
+    backdropFilter: 'blur(10px) saturate(140%)',
   },
   title: {
-    fontSize: 'lg',
-    fontWeight: 'semibold',
+    fontSize: 'md',
+    fontWeight: '600',
     color: 'var(--app-text)',
-    mb: 4,
-    letterSpacing: '0.01em',
+    mb: 3,
+    letterSpacing: '0.02em',
+    textTransform: 'uppercase',
   },
 };
 
@@ -50,10 +51,10 @@ export const sidebarStyles = {
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       display: 'flex',
       flexDirection: 'column' as const,
-      gap: 4,
+      gap: 3,
       overflow: isCollapsed ? 'visible' : 'hidden',
       pb: '4',
-      backdropFilter: 'blur(18px)',
+      backdropFilter: 'blur(14px) saturate(140%)',
       boxShadow: 'var(--app-shadow)',
       animation: 'appFadeUp 600ms ease-out',
     }),
@@ -86,7 +87,22 @@ export const sidebarStyles = {
       display: 'flex',
       alignItems: 'center',
       gap: 1,
-      p: 2,
+      p: 3,
+    },
+    headerButton: {
+      size: 'sm',
+      variant: 'ghost' as const,
+      color: 'var(--app-text-muted)',
+      borderRadius: 'md',
+      _hover: {
+        color: 'var(--app-text)',
+        bg: 'var(--app-panel-weak)',
+      },
+      _focusVisible: {
+        outline: '2px solid',
+        outlineColor: 'var(--app-accent)',
+        outlineOffset: '2px',
+      },
     },
   },
 
@@ -102,7 +118,7 @@ export const sidebarStyles = {
     messageList: {
       ...commonStyles.panel,
       p: 4,
-      width: '97%',
+      width: '100%',
       flex: 1,
       overflowY: 'auto',
       css: {
@@ -136,7 +152,7 @@ export const sidebarStyles = {
       p: 2,
       borderRadius: 'md',
       _hover: {
-        bg: 'rgba(255, 255, 255, 0.08)',
+        bg: 'var(--app-panel-weak)',
       },
     },
   },
@@ -146,7 +162,7 @@ export const sidebarStyles = {
       display: 'flex',
       position: 'relative',
       _hover: {
-        bg: 'rgba(255, 255, 255, 0.08)',
+        bg: 'var(--app-panel-weak)',
       },
       py: 1,
       px: 2,
@@ -187,11 +203,11 @@ export const sidebarStyles = {
       cursor: 'pointer',
       transition: 'all 0.2s',
       _hover: {
-        bg: 'rgba(255, 255, 255, 0.14)',
+        bg: 'rgba(28, 29, 33, 0.08)',
       },
     },
     historyItemSelected: {
-      bg: 'rgba(63, 224, 200, 0.18)',
+      bg: 'var(--app-accent-soft)',
       borderLeft: '3px solid',
       borderColor: 'var(--app-accent)',
     },
@@ -214,7 +230,7 @@ export const sidebarStyles = {
       opacity: 0.8,
       _hover: {
         opacity: 1,
-        bg: 'rgba(255, 255, 255, 0.18)',
+        bg: 'var(--app-panel-weak)',
       },
     },
     messagePreview: {
@@ -247,7 +263,7 @@ export const sidebarStyles = {
 
   cameraPanel: {
     container: {
-      width: '97%',
+      width: '100%',
       overflow: 'hidden',
       px: 4,
       minH: '240px',
@@ -281,7 +297,7 @@ export const sidebarStyles = {
 
   screenPanel: {
     container: {
-      width: '97%',
+      width: '100%',
       overflow: 'hidden',
       px: 4,
       minH: '240px',
@@ -315,7 +331,7 @@ export const sidebarStyles = {
   // Add Browser Panel Styles
   browserPanel: {
     container: {
-      width: '97%',
+      width: '100%',
       overflow: 'hidden',
       px: 4,
       minH: '240px',
@@ -338,7 +354,7 @@ export const sidebarStyles = {
       transition: 'all 0.2s',
       cursor: 'pointer',
       _hover: {
-        bg: 'rgba(255, 255, 255, 0.12)',
+        bg: 'var(--app-panel-weak)',
       },
     },
     iframe: {
@@ -351,7 +367,7 @@ export const sidebarStyles = {
 
   bottomTab: {
     container: {
-      width: '97%',
+      width: '100%',
       px: 4,
       position: 'relative' as const,
       zIndex: 0,
@@ -360,7 +376,7 @@ export const sidebarStyles = {
       width: '100%',
       bg: 'var(--app-panel)',
       borderRadius: 'lg',
-      p: '1',
+      p: '1.5',
     },
     list: {
       borderBottom: 'none',
@@ -376,11 +392,11 @@ export const sidebarStyles = {
       borderRadius: 'md',
       _hover: {
         color: 'var(--app-text)',
-        bg: 'rgba(255, 255, 255, 0.08)',
+        bg: 'var(--app-panel-weak)',
       },
       _selected: {
         color: 'var(--app-text)',
-        bg: 'rgba(63, 224, 200, 0.2)',
+        bg: 'var(--app-accent-soft)',
       },
     },
   },
@@ -429,21 +445,21 @@ export const sidebarStyles = {
       color: 'red.300',
       bg: 'transparent',
       _hover: {
-        bg: 'rgba(255, 255, 255, 0.18)',
+        bg: 'var(--app-panel-weak)',
       },
     },
     button: {
       color: 'var(--app-text)',
       bg: 'var(--app-panel-weak)',
       _hover: {
-        bg: 'rgba(255, 255, 255, 0.18)',
+        bg: 'rgba(28, 29, 33, 0.08)',
       },
     },
     clipboardButton: {
       color: 'var(--app-text)',
       bg: 'transparent',
       _hover: {
-        bg: 'rgba(255, 255, 255, 0.18)',
+        bg: 'var(--app-panel-weak)',
       },
       size: 'sm',
     },
@@ -514,7 +530,7 @@ export const chatPanelStyles = css`
   }
 
   .cs-message--outgoing .cs-message__content {
-    background-color: rgba(63, 224, 200, 0.18) !important;
+    background-color: var(--app-accent-soft) !important;
   }
 
   .cs-chat-container {
@@ -546,7 +562,7 @@ export const chatPanelStyles = css`
   }
 
   .cs-avatar {
-    background-color: var(--app-accent-3) !important;
+    background-color: var(--app-accent-2) !important;
     color: var(--app-text) !important;
     width: 28px !important;
     height: 28px !important;

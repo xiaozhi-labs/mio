@@ -15,7 +15,7 @@ export const layoutStyles = {
     height: getAppHeight(),
     backgroundColor: 'var(--app-bg)',
     backgroundImage:
-      'radial-gradient(1200px 600px at 12% -10%, rgba(63, 224, 200, 0.18), transparent 60%), radial-gradient(900px 500px at 92% 12%, rgba(248, 180, 88, 0.16), transparent 55%), linear-gradient(135deg, var(--app-bg), var(--app-bg-2))',
+      'radial-gradient(1200px 640px at 8% -12%, rgba(243, 106, 90, 0.24), transparent 60%), radial-gradient(900px 520px at 88% 10%, rgba(60, 142, 219, 0.22), transparent 55%), linear-gradient(135deg, var(--app-bg), var(--app-bg-2))',
     color: 'var(--app-text)',
     overflow: 'hidden',
     position: 'relative',

@@ -23,6 +23,19 @@ import { useInterrupt } from '@/hooks/utils/use-interrupt';
 import { useBrowser } from '@/context/browser-context';
 import { useMediaCapture } from '@/hooks/utils/use-media-capture';
 
+const deriveWsUrlFromBase = (baseUrl: string): string | null => {
+  try {
+    const url = new URL(baseUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null;
+    }
+    const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${url.host}/client-ws`;
+  } catch {
+    return null;
+  }
+};
+
 function WebSocketHandler({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const [wsState, setWsState] = useState<string>('CLOSED');
@@ -48,6 +61,37 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
   const { interrupt } = useInterrupt();
   const { setBrowserViewData } = useBrowser();
   const { captureCamera, captureScreen } = useMediaCapture();
+  const normalizedBaseUrl = useMemo(() => {
+    if (!baseUrl || baseUrl.startsWith('://')) {
+      return defaultBaseUrl;
+    }
+    return baseUrl;
+  }, [baseUrl]);
+  const normalizedWsUrl = useMemo(() => {
+    if (!wsUrl || wsUrl.startsWith('ws:///')) {
+      const derived = deriveWsUrlFromBase(normalizedBaseUrl);
+      return derived || defaultWsUrl;
+    }
+    if (normalizedBaseUrl.startsWith('https://') && wsUrl.startsWith('ws://')) {
+      return wsUrl.replace(/^ws:\/\//, 'wss://');
+    }
+    if (normalizedBaseUrl.startsWith('http://') && wsUrl.startsWith('wss://')) {
+      return wsUrl.replace(/^wss:\/\//, 'ws://');
+    }
+    return wsUrl;
+  }, [wsUrl, normalizedBaseUrl]);
+
+  useEffect(() => {
+    if (baseUrl !== normalizedBaseUrl) {
+      setBaseUrl(normalizedBaseUrl);
+    }
+  }, [baseUrl, normalizedBaseUrl, setBaseUrl]);
+
+  useEffect(() => {
+    if (wsUrl !== normalizedWsUrl) {
+      setWsUrl(normalizedWsUrl);
+    }
+  }, [wsUrl, normalizedWsUrl, setWsUrl]);
 
   useEffect(() => {
     autoStartMicOnConvEndRef.current = autoStartMicOnConvEnd;
@@ -335,8 +379,8 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
   }, [aiState, addAudioTask, appendHumanMessage, baseUrl, bgUrlContext, setAiState, setConfName, setConfUid, setConfigFiles, setCurrentHistoryUid, setHistoryList, setMessages, setModelInfo, setSubtitleText, startMic, stopMic, setSelfUid, setGroupMembers, setIsOwner, backendSynthComplete, setBackendSynthComplete, clearResponse, handleControlMessage, appendOrUpdateToolCallMessage, upsertAIMessage, interrupt, setBrowserViewData, t, captureCamera, captureScreen]);
 
   useEffect(() => {
-    wsService.connect(wsUrl);
-  }, [wsUrl]);
+    wsService.connect(normalizedWsUrl);
+  }, [normalizedWsUrl]);
 
   useEffect(() => {
     const stateSubscription = wsService.onStateChange(setWsState);
@@ -345,17 +389,17 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
       stateSubscription.unsubscribe();
       messageSubscription.unsubscribe();
     };
-  }, [wsUrl, handleWebSocketMessage]);
+  }, [normalizedWsUrl, handleWebSocketMessage]);
 
   const webSocketContextValue = useMemo(() => ({
     sendMessage: wsService.sendMessage.bind(wsService),
     wsState,
-    reconnect: () => wsService.connect(wsUrl),
-    wsUrl,
+    reconnect: () => wsService.connect(normalizedWsUrl),
+    wsUrl: normalizedWsUrl,
     setWsUrl,
-    baseUrl,
+    baseUrl: normalizedBaseUrl,
     setBaseUrl,
-  }), [wsState, wsUrl, baseUrl]);
+  }), [wsState, normalizedWsUrl, normalizedBaseUrl]);
 
   return (
     <WebSocketContext.Provider value={webSocketContextValue}>

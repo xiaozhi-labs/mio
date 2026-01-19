@@ -91,13 +91,35 @@ const DEFAULT_VAD_SETTINGS: VADSettings = {
   redemptionFrames: 35,
 };
 
-const DEFAULT_VAD_STATE = {
-	micOn: false,
-	autoStopMic: false,
-	autoStartMicOn: false,
-	autoStartMicOnConvEnd: true,
-	voiceInterruptEnabled: false,
+const getDefaultBoolean = (value: string | undefined, fallback: boolean): boolean => {
+  if (value === 'true' || value === '1') {
+    return true;
+  }
+  if (value === 'false' || value === '0') {
+    return false;
+  }
+  return fallback;
 };
+
+const getDefaultVADState = () => {
+  const isElectron = typeof window !== 'undefined' && (window as any).api !== undefined;
+  const defaultModeEnv = import.meta.env.VITE_DEFAULT_MODE;
+  const isPetDefault = isElectron && defaultModeEnv === 'pet';
+  const defaultMicOn = getDefaultBoolean(import.meta.env.VITE_DEFAULT_MIC_ON, isPetDefault);
+  const defaultAutoStartMicOnConvEnd = getDefaultBoolean(
+    import.meta.env.VITE_DEFAULT_AUTO_START_MIC_ON_CONV_END,
+    true,
+  );
+  return {
+    micOn: defaultMicOn,
+    autoStopMic: false,
+    autoStartMicOn: false,
+    autoStartMicOnConvEnd: defaultAutoStartMicOnConvEnd,
+    voiceInterruptEnabled: false,
+  };
+};
+
+const DEFAULT_VAD_STATE = getDefaultVADState();
 
 /**
  * Create the VAD context

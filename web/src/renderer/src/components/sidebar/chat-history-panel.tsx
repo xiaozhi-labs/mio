@@ -164,7 +164,7 @@ function ChatHistoryPanel(): JSX.Element {
                       </Flex>
                       {toolContentNodes.length > 0 && (
                         <Box
-                          bg="rgba(255, 255, 255, 0.06)"
+                          bg="var(--app-panel-weak)"
                           border="1px solid var(--app-border)"
                           borderRadius="md"
                           px={3}

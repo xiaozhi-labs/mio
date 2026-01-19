@@ -59,11 +59,14 @@ const ActionButtons = memo(({ micOn, onMicToggle, onInterrupt }: ActionButtonsPr
       bg={micOn ? 'green.500' : 'red.500'}
       {...footerStyles.footer.actionButton}
       onClick={onMicToggle}
+      aria-label={micOn ? 'Mute microphone' : 'Enable microphone'}
+      title={micOn ? 'Mute microphone' : 'Enable microphone'}
     >
       {micOn ? <BsMicFill /> : <BsMicMuteFill />}
     </IconButton>
     <IconButton
-      aria-label="Raise hand"
+      aria-label="Interrupt"
+      title="Interrupt"
       bg="yellow.500"
       {...footerStyles.footer.actionButton}
       onClick={onInterrupt}
@@ -90,6 +93,7 @@ const MessageInput = memo(({
         <IconButton
           aria-label="Attach file"
           variant="ghost"
+          title="Attach file"
           {...footerStyles.footer.attachButton}
         >
           <BsPaperclip size="24" />

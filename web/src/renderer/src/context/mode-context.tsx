@@ -12,8 +12,10 @@ interface ModeContextType {
 const ModeContext = createContext<ModeContextType | undefined>(undefined);
 
 export const ModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mode, setModeState] = useState<ModeType>('window');
   const isElectron = window.api !== undefined;
+  const defaultModeEnv = import.meta.env.VITE_DEFAULT_MODE;
+  const defaultMode: ModeType = (isElectron && defaultModeEnv === 'pet') ? 'pet' : 'window';
+  const [mode, setModeState] = useState<ModeType>(defaultMode);
 
   const setMode = (newMode: ModeType) => {
     if (newMode === 'pet' && !isElectron) {
@@ -70,6 +72,12 @@ export const ModeProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return undefined;
   }, [isElectron]);
+
+  useEffect(() => {
+    if (defaultMode === 'pet' && isElectron) {
+      setMode('pet');
+    }
+  }, [defaultMode, isElectron]);
 
   return (
     <ModeContext.Provider value={{ mode, setMode, isElectron }}>

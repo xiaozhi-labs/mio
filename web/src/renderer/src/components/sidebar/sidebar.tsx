@@ -12,6 +12,7 @@ import HistoryDrawer from './history-drawer';
 import { useSidebar } from '@/hooks/sidebar/use-sidebar';
 import GroupDrawer from './group-drawer';
 import { ModeType } from '@/context/mode-context';
+import { ColorModeButton } from '@/components/ui/color-mode';
 
 // Type definitions
 interface SidebarProps {
@@ -51,7 +52,12 @@ const ModeMenu = memo(({ setMode, currentMode, isElectron }: {
   isElectron: boolean
 }) => (
   <Menu.Root>
-    <Menu.Trigger as={Button} aria-label="Mode Menu" title="Change Mode">
+    <Menu.Trigger
+      as={Button}
+      aria-label="Mode menu"
+      title="Mode"
+      {...sidebarStyles.sidebar.headerButton}
+    >
       <FiLayers />
     </Menu.Trigger>
     <Menu.Positioner>
@@ -84,27 +90,50 @@ ModeMenu.displayName = 'ModeMenu';
 
 const HeaderButtons = memo(({ onSettingsOpen, onNewHistory, setMode, currentMode, isElectron }: HeaderButtonsProps) => (
   <Box display="flex" gap={1}>
-    <Button onClick={onSettingsOpen}>
+    <Button
+      onClick={onSettingsOpen}
+      aria-label="Settings"
+      title="Settings"
+      {...sidebarStyles.sidebar.headerButton}
+    >
       <FiSettings />
     </Button>
 
     <GroupDrawer>
-      <Button>
+      <Button
+        aria-label="Group"
+        title="Group"
+        {...sidebarStyles.sidebar.headerButton}
+      >
         <FiUsers />
       </Button>
     </GroupDrawer>
 
     <HistoryDrawer>
-      <Button>
+      <Button
+        aria-label="History"
+        title="History"
+        {...sidebarStyles.sidebar.headerButton}
+      >
         <FiClock />
       </Button>
     </HistoryDrawer>
 
-    <Button onClick={onNewHistory}>
+    <Button
+      onClick={onNewHistory}
+      aria-label="New chat"
+      title="New chat"
+      {...sidebarStyles.sidebar.headerButton}
+    >
       <FiPlus />
     </Button>
 
     <ModeMenu setMode={setMode} currentMode={currentMode} isElectron={isElectron} />
+
+    <ColorModeButton
+      title="Day/Night"
+      {...sidebarStyles.sidebar.headerButton}
+    />
   </Box>
 ));
 

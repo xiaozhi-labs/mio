@@ -41,13 +41,14 @@ dmg:
   writeUpdateInfo: false
 linux:
   target:
-    - AppImage
+    - target: AppImage
+      arch: [x64, arm64]
     - snap
     - deb
   maintainer: electronjs.org
   category: Utility
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
 npmRebuild: false
 publish:
   provider: github
